@@ -14,9 +14,9 @@
 package com.ibm.ws.feature.utils;
 
 /**
- * BND manifest attribute names.
+ * Feature constants.
  */
-public interface FeatureBndConstants {
+public interface FeatureConstants {
 
     // Base BND constants ...
 
@@ -83,4 +83,11 @@ public interface FeatureBndConstants {
     // ??
 
     String OSGI_SUBSYSTEM_FEATURE = "osgi.subsystem.feature";
+    String OSGI_IDENTITY = "osgi.identity";
+    String OSGI_IDENTITY_PREFIX = "osgi.identity=";
+
+    String IBM_TOLERATES = "ibm.tolerates:";
+
+    String[] IGNORED_AUTOFEATURE_PREFIXES = { "com.", "io.openliberty." };
+
 }

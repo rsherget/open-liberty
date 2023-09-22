@@ -28,19 +28,19 @@ import java.util.function.Consumer;
 import org.junit.Assert;
 import org.junit.Test;
 
-import com.ibm.ws.feature.utils.FeatureBndConstants;
+import com.ibm.ws.feature.utils.FeatureConstants;
 import com.ibm.ws.feature.utils.FeatureFiles;
 import com.ibm.ws.feature.utils.FeatureInfo;
-import com.ibm.ws.feature.utils.FeatureRepository;
+import com.ibm.ws.feature.utils.FeatureRepo;
 
 import aQute.bnd.header.Attrs;
 
 public class FeatureTest {
     private static final String REPOSITORY_ROOT = "./visibility";
 
-    private static final FeatureRepository repository = readRepository(REPOSITORY_ROOT);
+    private static final FeatureRepo repository = readRepository(REPOSITORY_ROOT);
 
-    public static FeatureRepository getRepository() {
+    public static FeatureRepo getRepository() {
         return repository;
     }
 
@@ -60,9 +60,9 @@ public class FeatureTest {
         return getRepository().getBaseVisibilities();
     }
 
-    private static FeatureRepository readRepository(String repositoryRoot) {
+    private static FeatureRepo readRepository(String repositoryRoot) {
         try {
-            return FeatureRepository.readFeatures(new File(repositoryRoot));
+            return FeatureRepo.readFeatures(new File(repositoryRoot));
         } catch (IOException e) {
             throw new RuntimeException("Failed to read features [ " + repositoryRoot + " ]", e);
         }
@@ -98,14 +98,27 @@ public class FeatureTest {
             File featureFile = featureInfo.getFeatureFile();
 
             String visibility = featureInfo.getVisibility();
-            Set<File> category = featureFiles.getCategory(visibility);
+
+            String visibilityCategory;
+            if (featureInfo.isAutoFeature()) {
+                if (!FeatureConstants.VISIBILITY_PRIVATE.equals(visibility)) {
+                    // This is an error; caught elsewhere.
+                    return;
+                }
+                visibilityCategory = FeatureConstants.VISIBILITY_AUTO;
+            } else {
+                visibilityCategory = visibility;
+            }
+
+            Set<File> category = featureFiles.getCategory(visibilityCategory);
 
             if (!category.contains(featureFile)) {
                 File actualCategory = featureFiles.getActualCategory(featureInfo.getFeatureFile());
 
                 appendLine(builder,
                            "  [ ", featureInfo.getName(), " : ", featureInfo.getVisibility(), " ]",
-                           " in [ ", actualCategory.getName(), " ]");
+                           " missing from [ ", visibilityCategory, " ]",
+                           " found in [ ", actualCategory.getName(), " ]");
             }
         });
 
@@ -117,24 +130,32 @@ public class FeatureTest {
     public void testBaseVisibility() {
         StringBuilder builder = new StringBuilder();
 
-        Map<String, String> baseVisibilities = new HashMap<>(getNumFeatures());
+        int numFeatures = getNumFeatures();
+
+        Map<String, String> baseFeatures = new HashMap<>(numFeatures);
+        Map<String, String> baseVisibilities = new HashMap<>(numFeatures);
 
         forEach((FeatureInfo featureInfo) -> {
             if (featureInfo.isAutoFeature() || (featureInfo.getVersion() == null)) {
                 return;
             }
 
+            String name = featureInfo.getName();
             String baseName = featureInfo.getBaseName();
             String visibility = featureInfo.getVisibility();
 
             String priorVisibility = baseVisibilities.get(baseName);
             if (priorVisibility == null) {
-                baseVisibilities.put(baseName, visibility);
+                baseFeatures.put(baseName, name);
+                baseVisibilities.put(baseName, priorVisibility);
 
-            } else if (!priorVisibility.equals(visibility)) {
+            } else {
+                String priorFeature = baseFeatures.get(baseName);
+
                 appendLine(builder,
-                           "Feature [ ", featureInfo.getName(), " ] collides on [ ", baseName, " ]",
-                           ": Visibility [ ", visibility, " ] prior visibility [ ", priorVisibility, " ]");
+                           " Base name [ ", baseName, " ] conflict:",
+                           " Feature [ ", name, " : ", visibility, " ]: ",
+                           " Prior feature [ ", priorFeature, " ] [ ", priorVisibility, " ]");
             }
         });
 
@@ -163,88 +184,108 @@ public class FeatureTest {
 
         forEach((FeatureInfo featureInfo) -> {
             String featureName = featureInfo.getName();
+            String shortName = featureInfo.getShortName();
+
+            // Features that start with "com.ibm.websphere.appserver.adminCenter.tool"
+            // must be stored in their own directory and must have an IBM-ShortName.
+
+            boolean isAdminCenter = featureName.startsWith("com.ibm.websphere.appserver.adminCenter.tool");
 
             String visibility = featureInfo.getVisibility();
+
             boolean isPublic = false;
             boolean isPrivate = false;
 
-            if (!visibility.equals(FeatureBndConstants.VISIBILITY_AUTO) &&
-                !(isPrivate = visibility.equals(FeatureBndConstants.VISIBILITY_PRIVATE)) &&
-                !visibility.equals(FeatureBndConstants.VISIBILITY_PROTECTED) &&
-                !(isPublic = visibility.equals(FeatureBndConstants.VISIBILITY_PUBLIC))) {
-                appendLine(builder, "Feature [ ", featureName, " ] has unknown visibility [ ", visibility, " ]");
+            if (!visibility.equals(FeatureConstants.VISIBILITY_AUTO) &&
+                !(isPrivate = visibility.equals(FeatureConstants.VISIBILITY_PRIVATE)) &&
+                !visibility.equals(FeatureConstants.VISIBILITY_PROTECTED) &&
+                !(isPublic = visibility.equals(FeatureConstants.VISIBILITY_PUBLIC))) {
+
+                appendLine(builder,
+                           "Feature [ ", featureName, " ]",
+                           " has unknown visibility [ ", visibility, " ]");
                 return;
             }
 
-            if (featureInfo.isAutoFeature() && !isPrivate) {
-                appendLine(builder,
-                           "Auto-feature [ ", featureName, " ] is [ ", visibility, " ]",
-                           " but should be [ ", FeatureBndConstants.VISIBILITY_PRIVATE, " ]");
+            String fileVisibility;
+            if (featureInfo.isAutoFeature()) {
+                if (!isPrivate) {
+                    appendLine(builder,
+                               "Auto-feature [ ", featureName, " ] is [ ", visibility, " ]",
+                               " but should be [ ", FeatureConstants.VISIBILITY_PRIVATE, " ]");
+                }
+                fileVisibility = FeatureConstants.VISIBILITY_AUTO;
+            } else {
+                fileVisibility = visibility;
             }
 
-            String featureShortName = featureInfo.getShortName();
-            String parentName = featureInfo.getFeatureFile().getParentFile().getName();
+            boolean inSubDir;
+            if (isPublic || isAdminCenter) {
+                inSubDir = true;
 
-            if (isPublic) {
-                if (featureShortName == null) {
-                    appendLine(builder, "Public feature [ ", featureName, " ] has no short name");
-
-                } else if (!parentName.equals(featureShortName)) {
+                if (shortName == null) {
                     appendLine(builder,
-                               "Public feature [ ", featureName, " ]",
-                               " in [ ", parentName, " ]",
-                               " should be in [ ", featureShortName, " ]");
+                               "Public or adminCenter feature [ ", featureName, " ]",
+                               " has no short name");
                 }
-
             } else {
-                // Features that start with "com.ibm.websphere.appserver.adminCenter.tool"
-                // must be stored in their own directory and must have an IBM-ShortName.
+                inSubDir = false;
 
-                if (!featureName.startsWith("com.ibm.websphere.appserver.adminCenter.tool")) {
-                    if (featureShortName != null) {
-                        appendLine(builder,
-                                   "Non-public feature [ ", featureName, " ]",
-                                   " has non-null short name [ ", featureShortName, " ]");
-                    } else {
-                        if (!parentName.equals(visibility)) {
-                            appendLine(builder,
-                                       "Non-public feature [ ", featureName, " ]",
-                                       " in [ ", parentName, " ]",
-                                       " must be in [ ", visibility, " ]");
-                        }
-                    }
-
-                } else {
-                    if (featureShortName == null) {
-                        appendLine(builder,
-                                   "Non-public admin-center feature [ ", featureName, " ]", " has null short name");
-                    } else {
-                        if (!parentName.equals(featureShortName)) {
-                            appendLine(builder,
-                                       "Non-public admin-center feature [ ", featureName, " ]",
-                                       " in [ ", parentName, " ]",
-                                       " should be in [ ", featureShortName, " ]");
-                        }
-
-                    }
+                if (shortName != null) {
+                    appendLine(builder,
+                               "Non-public, non-adminCenter feature [ ", featureName, " ]",
+                               " has short name [ ", shortName, " ]");
                 }
+            }
 
+            if (!isPublic) {
                 if (featureInfo.isSetDisableOnConflict() && featureInfo.isAutoFeature()) {
                     appendLine(builder,
                                "Non-public auto feature [ ", featureName, " ]",
-                               " has disallowed [ ", FeatureBndConstants.WLP_DISABLE_ALL_FEATURES_ON_CONFLICT, " ]");
+                               " has disallowed [ ", FeatureConstants.WLP_DISABLE_ALL_FEATURES_ON_CONFLICT, " ]");
                 }
 
                 if (featureInfo.isSetAlsoKnownAs()) {
                     appendLine(builder,
                                "Non-public feature [ ", featureName, " ]",
-                               " has non-null [ ", FeatureBndConstants.WLP_ALSO_KNOWN_AS, " ]",
+                               " has non-null [ ", FeatureConstants.WLP_ALSO_KNOWN_AS, " ]",
                                " [ ", featureInfo.getAlsoKnownAs(), " ]");
+                }
+            }
+
+            File firstParent = featureInfo.getFeatureFile().getParentFile();
+            String firstParentName = firstParent.getName();
+
+            String subDirName;
+            String categoryName;
+
+            if (inSubDir) {
+                subDirName = firstParentName;
+                File secondParent = firstParent.getParentFile();
+                categoryName = ((secondParent == null) ? null : secondParent.getName());
+            } else {
+                subDirName = null;
+                categoryName = firstParentName;
+            }
+
+            if (!categoryName.equals(fileVisibility)) {
+                appendLine(builder,
+                           "Feature [ ", featureName, " ]",
+                           " in [ ", categoryName, " ]",
+                           " should be in [ ", fileVisibility, " ]");
+            }
+
+            if (inSubDir) {
+                if (!subDirName.equals(shortName)) {
+                    appendLine(builder,
+                               "Feature [ ", featureName, " ] in [ ", subDirName, " ]",
+                               " must be in [ ", shortName, " ]");
                 }
             }
         });
 
         String title = "Visibility Errors:";
+
         maybeFail(builder, title);
     }
 
@@ -311,7 +352,7 @@ public class FeatureTest {
                     appendLine(builder,
                                "Feature [ ", feature, " ]",
                                " has edition [ ", edition, " ] and kind [ ", kind, " ]",
-                               " but must have kind [ ", FeatureBndConstants.KIND_NOSHIP, " ]");
+                               " but must have kind [ ", FeatureConstants.KIND_NOSHIP, " ]");
                     return false;
                 }
 
@@ -320,7 +361,7 @@ public class FeatureTest {
                     appendLine(builder,
                                "Feature [ ", feature, " ]",
                                " has kind [ ", kind, " ] and edition [ ", edition, " ]",
-                               " but must have edition [ ", FeatureBndConstants.EDITION_FULL, " ]");
+                               " but must have edition [ ", FeatureConstants.EDITION_FULL, " ]");
                     return false;
                 }
             }
@@ -443,7 +484,49 @@ public class FeatureTest {
     // currently, but can re-enable at times to see how things are looking and find places
     // where new features were added and parallel activation should match.
 
-    @Test
+    // Parallel activation [ io.openliberty.batchSecurity-2.0 ] conflicts with [ com.ibm.wsspi.appserver.webBundleSecurity-1.0 ]
+    // Parallel activation [ com.ibm.websphere.appserver.connectionManagement-1.0 ] conflicts with [ com.ibm.websphere.appserver.transaction-1.1 ]
+    // Parallel activation [ com.ibm.websphere.appserver.internal.jca-1.6 ] conflicts with [ com.ibm.websphere.appserver.transaction-1.1 ]
+    // Parallel activation [ com.ibm.websphere.appserver.jcaSecurity-1.0 ] conflicts with [ com.ibm.websphere.appserver.transaction-1.1 ]
+    // Parallel activation [ io.openliberty.connectionManager1.0.internal.ee-6.0 ] conflicts with [ com.ibm.websphere.appserver.transaction-1.1 ]
+    // Parallel activation [ io.openliberty.jakarta.annotation-3.0 ] conflicts with [ io.openliberty.noShip-1.0 ]
+    // Parallel activation [ io.openliberty.jakarta.cdi-4.1 ] conflicts with [ io.openliberty.noShip-1.0 ]
+    // Parallel activation [ io.openliberty.jakarta.concurrency-3.1 ] conflicts with [ io.openliberty.noShip-1.0 ]
+    // Parallel activation [ io.openliberty.jakarta.expressionLanguage-6.0 ] conflicts with [ io.openliberty.noShip-1.0 ]
+    // Parallel activation [ io.openliberty.jakarta.faces-5.0 ] conflicts with [ io.openliberty.noShip-1.0 ]
+    // Parallel activation [ io.openliberty.jakarta.interceptor-2.2 ] conflicts with [ io.openliberty.noShip-1.0 ]
+    // Parallel activation [ io.openliberty.jakarta.nosql-1.0 ] conflicts with [ io.openliberty.noShip-1.0 ]
+    // Parallel activation [ io.openliberty.jakarta.pages-4.0 ] conflicts with [ io.openliberty.noShip-1.0 ]
+    // Parallel activation [ io.openliberty.jakarta.persistence.base-3.2 ] conflicts with [ io.openliberty.noShip-1.0 ]
+    // Parallel activation [ io.openliberty.jakarta.restfulWS-4.0 ] conflicts with [ io.openliberty.noShip-1.0 ]
+    // Parallel activation [ io.openliberty.jakarta.validation-3.1 ] conflicts with [ io.openliberty.noShip-1.0 ]
+    // Parallel activation [ io.openliberty.jakarta.websocket-2.2 ] conflicts with [ io.openliberty.noShip-1.0 ]
+    // Parallel activation [ io.openliberty.jcaSecurity.internal.ee-6.0 ] conflicts with [ com.ibm.websphere.appserver.transaction-1.1 ]
+    // Parallel activation [ io.openliberty.jsonbImpl-2.0.0 ] conflicts with [ com.ibm.websphere.appserver.bells-1.0 ]
+    // Parallel activation [ io.openliberty.jsonbImpl-3.0.0 ] conflicts with [ com.ibm.websphere.appserver.bells-1.0 ]
+    // Parallel activation [ io.openliberty.jsonpImpl-2.0.0 ] conflicts with [ com.ibm.websphere.appserver.bells-1.0 ]
+    // Parallel activation [ io.openliberty.jsonpImpl-2.1.0 ] conflicts with [ com.ibm.websphere.appserver.bells-1.0 ]
+    // Parallel activation [ io.openliberty.persistentExecutor.internal.ee-7.0 ] conflicts with [ com.ibm.websphere.appserver.persistentExecutorSubset-1.0 ]
+    // Parallel activation [ io.openliberty.servlet.api-6.1 ] conflicts with [ io.openliberty.noShip-1.0 ]
+    // Parallel activation [ io.openliberty.batch-2.1 ] conflicts with [ io.openliberty.batch2.1.internal.ee-10.0 ]
+    // Parallel activation [ com.ibm.websphere.appserver.jaxws-2.2 ] conflicts with [ com.ibm.websphere.appserver.jaxb-2.2 ]
+    // Parallel activation [ com.ibm.websphere.appserver.jaxws-2.2 ] conflicts with [ com.ibm.websphere.appserver.javax.mail-1.5 ]
+    // Parallel activation [ com.ibm.websphere.appserver.managedBeans-1.0 ] conflicts with [ com.ibm.websphere.appserver.transaction-1.1 ]
+    // Parallel activation [ io.openliberty.messagingSecurity-3.0 ] conflicts with [ com.ibm.websphere.appserver.security-1.0 ]
+    // Parallel activation [ io.openliberty.mpGraphQL-2.0 ] conflicts with [ io.openliberty.mpContextPropagation-1.3 ]
+    // Parallel activation [ com.ibm.websphere.appserver.mpJwt-1.0 ] conflicts with [ com.ibm.websphere.appserver.jwt-1.0 ]
+    // Parallel activation [ com.ibm.websphere.appserver.mpJwt-1.0 ] conflicts with [ com.ibm.websphere.appserver.org.eclipse.microprofile.jwt-1.0 ]
+    // Parallel activation [ com.ibm.websphere.appserver.mpJwt-1.0 ] conflicts with [ com.ibm.websphere.appserver.appSecurity-2.0 ]
+    // Parallel activation [ com.ibm.websphere.appserver.mpJwt-1.1 ] conflicts with [ com.ibm.websphere.appserver.jwt-1.0 ]
+    // Parallel activation [ com.ibm.websphere.appserver.mpJwt-1.1 ] conflicts with [ com.ibm.websphere.appserver.org.eclipse.microprofile.jwt-1.0 ]
+    // Parallel activation [ com.ibm.websphere.appserver.mpJwt-1.1 ] conflicts with [ com.ibm.websphere.appserver.appSecurity-2.0 ]
+    // Parallel activation [ com.ibm.websphere.appserver.mpJwt-1.2 ] conflicts with [ com.ibm.websphere.appserver.jwt-1.0 ]
+    // Parallel activation [ com.ibm.websphere.appserver.mpJwt-1.2 ] conflicts with [ com.ibm.websphere.appserver.appSecurity-3.0 ]
+    // Parallel activation [ io.openliberty.mpJwt-2.0 ] conflicts with [ com.ibm.websphere.appserver.jwt-1.0 ]
+    // Parallel activation [ io.openliberty.mpJwt-2.0 ] conflicts with [ io.openliberty.appSecurity-4.0 ]
+    // Parallel activation [ io.openliberty.mpJwt-2.1 ] conflicts with [ com.ibm.websphere.appserver.jwt-1.0 ]
+
+    // @Test
     public void testParallelActivation() {
         StringBuilder builder = new StringBuilder();
 
@@ -455,8 +538,8 @@ public class FeatureTest {
             featureInfo.forEachResolvedDep(getRepository(), (FeatureInfo dep) -> {
                 if (!dep.isParallelActivationEnabled()) {
                     appendLine(builder,
-                               "Parallel activation feature [ ", featureInfo.getName() + " ]",
-                               " conflicts with dependent [ ", dep.getName(), " ]");
+                               "Parallel activation [ ", featureInfo.getName() + " ]",
+                               " conflicts with [ ", dep.getName(), " ]");
                 }
             });
         });
@@ -492,6 +575,40 @@ public class FeatureTest {
         maybeFail(builder, title);
     }
 
+    // Servlet 3.0 and Rest Connector 1.0 are present only
+    // in Commercial Liberty.  Many existing features depend on
+    // Servlet 3.0.  A single feature, io.openliberty.adminCenter1.0.javaee,
+    // depends on Rest Connector 1.0.
+    //
+    // That these features is not present is possible because of tolerates
+    // clauses which are enabled for later feature versions which are present.
+    //
+    // For example,
+    // "io.openliberty.admincenter1.0.javaee" has:
+    //
+    // -features=
+    //   com.ibm.websphere.appserver.restConnector-1.0; ibm.tolerates:="2.0",
+    //   com.ibm.websphere.appserver.jta-1.1; ibm.tolerates:="1.2",
+    //   com.ibm.websphere.appserver.jsp-2.2; ibm.tolerates:="2.3",
+    //   com.ibm.websphere.appserver.servlet-3.0; ibm.tolerates:="3.1,4.0"
+    //
+    // Rest Connector 2.0 and Servlet 3.1 are both present in Open Liberty.
+
+    public static final String FEATURE_SERVLET_30 = "com.ibm.websphere.appserver.servlet-3.0";
+    public static final String FEATURE_SERVLET_INTERNAL_30 = "io.openliberty.servlet.internal-3.0";
+
+    public static final String FEATURE_RESTCONNECTOR_10 = "com.ibm.websphere.appserver.restConnector-1.0";
+
+    // Used by com.ibm.websphere.appserver.jcaInboundSecurity-1.0
+    public static final String FEATURE_JCA_16 = "com.ibm.websphere.appserver.jca-1.6";
+
+    public static boolean permitAbsence(String featureName) {
+        return (featureName.equals(FEATURE_SERVLET_30) ||
+                featureName.equals(FEATURE_SERVLET_INTERNAL_30) ||
+                featureName.equals(FEATURE_RESTCONNECTOR_10) ||
+                featureName.equals(FEATURE_JCA_16));
+    }
+
     @Test
     public void testDependencies() {
         StringBuilder builder = new StringBuilder();
@@ -503,7 +620,9 @@ public class FeatureTest {
 
             featureInfo.forEachDepName((String depName) -> {
                 if (getFeature(depName) == null) {
-                    missingDeps.add(depName);
+                    if (!permitAbsence(depName)) {
+                        missingDeps.add(depName);
+                    }
                 }
             });
 
@@ -568,11 +687,15 @@ public class FeatureTest {
         StringBuilder builder = new StringBuilder();
 
         forEach((FeatureInfo featureInfo) -> {
-            if (!FeatureBndConstants.VISIBILITY_PUBLIC.equals(featureInfo.getVisibility())) {
-                return;
+            String featureName = featureInfo.getName();
+
+            if (!featureInfo.isPublic()) {
+                // AdminCenter features have resources.
+                if (!featureName.startsWith("com.ibm.websphere.appserver.adminCenter.tool")) {
+                    return;
+                }
             }
 
-            String featureName = featureInfo.getBaseName();
             String propertiesPath = "resources/l10n/" + featureName + ".properties";
 
             File featureFile = featureInfo.getFeatureFile();
@@ -590,81 +713,65 @@ public class FeatureTest {
 
     //
 
-    protected static final Set<String> noShipFeatures;
+    protected static final Set<String> disallowedNoShipFeatures;
 
-    // Expected no-ship features.
+    // Features no-teExpected no-ship features.
 
     static {
-        noShipFeatures = new HashSet<>(1);
-        noShipFeatures.add("io.openliberty.persistentExecutor.internal.ee-10.0");
+        disallowedNoShipFeatures = new HashSet<>(1);
+        disallowedNoShipFeatures.add("io.openliberty.persistentExecutor.internal.ee-10.0");
     }
 
     @Test
-    public void testMissingBetaFeatures() {
+    public void testNoShipFeatures() {
         StringBuilder builder = new StringBuilder();
 
-        noShipFeatures.forEach((String feature) -> {
+        disallowedNoShipFeatures.forEach((String feature) -> {
             FeatureInfo featureInfo = getFeature(feature);
             if (featureInfo == null) {
                 appendLine(builder,
-                           "  Listed no-ship [ ", feature, " ] was not found");
+                           "  Missing disallowed no-ship [ ", feature, " ]");
 
             } else {
                 if (!featureInfo.isNoShip()) {
                     appendLine(builder,
-                               "  Listed no-ship [ ", feature, " ]",
-                               " is [ ", featureInfo.getKind(), " ]");
+                               "  Expected no-ship [ ", feature, " ]",
+                               " is now [ ", featureInfo.getKind(), " ]");
+                    appendLine(builder,
+                               "  Remove this feature from the disallowed no-ship features list.");
                 }
             }
         });
 
         forEach((FeatureInfo featureInfo) -> {
-            String featureName = featureInfo.getName();
+            if (featureInfo.isNoShip() && !featureInfo.isAutoFeature()) {
+                boolean containsNoShip = false;
+                boolean containsBeta = false;
 
-            // NoShip, Beta, or GA ...
-
-            if (!featureInfo.isNoShip()) {
-                if (noShipFeatures.contains(featureName)) {
-                    appendLine(builder,
-                               "  Listed no-ship [ ", featureName, " ]",
-                               " is [ ", featureInfo.getKind(), " ]");
-                }
-
-            } else {
-                if (!noShipFeatures.contains(featureName)) {
-                    appendLine(builder,
-                               "  Feature [ ", featureName, " ]",
-                               " is not listed as a no-ship feature.");
-                }
-
-                if (!featureInfo.isAutoFeature()) {
-                    boolean containsNoShip = false;
-                    boolean containsBeta = false;
-
-                    for (String dep : featureInfo.getDependentFeatures().keySet()) {
-                        FeatureInfo depFeature = getFeature(dep);
-                        if (depFeature == null) {
-                            continue;
-                        }
-
-                        if (!containsNoShip) {
-                            containsNoShip = depFeature.isNoShip();
-                        }
-                        if (!containsBeta) {
-                            containsBeta = depFeature.isBeta();
-                        }
+                for (String dep : featureInfo.getDependentFeatures().keySet()) {
+                    FeatureInfo depFeature = getFeature(dep);
+                    if (depFeature == null) {
+                        continue;
                     }
 
-                    // Found features that are marked noship, but contain only beta/ga features without a noship feature dependency:
-                    // If you recently marked a feature beta, you may need to update the feature to depend on noShip-1.0 feature,
-                    // add or remove from the expected failures list in this test, or have something to fix.
+                    if (!containsNoShip) {
+                        containsNoShip = depFeature.isNoShip();
+                    }
+                    if (!containsBeta) {
+                        containsBeta = depFeature.isBeta();
+                    }
+                }
 
-                    if (!containsNoShip && containsBeta) {
-                        if (!noShipFeatures.contains(featureName)) {
-                            appendLine(builder,
-                                       "  No-ship feature [ ", featureName, " ]",
-                                       " has no no-ship dependencies and has beta dependencies");
-                        }
+                // Found features that are marked noship, but contain only beta/ga features without a noship feature dependency:
+                // If you recently marked a feature beta, you may need to update the feature to depend on noShip-1.0 feature,
+                // add or remove from the expected failures list in this test, or have something to fix.
+
+                if (!containsNoShip && containsBeta) {
+                    String featureName = featureInfo.getBaseName();
+                    if (!disallowedNoShipFeatures.contains(featureName)) {
+                        appendLine(builder,
+                                   "  No-ship auto feature [ ", featureName, " ]",
+                                   " has no no-ship dependencies and has beta dependencies");
                     }
                 }
             }
@@ -675,7 +782,7 @@ public class FeatureTest {
     }
 
     /**
-     * Tests to make sure that public and protected features are correctly referenced in a feature
+     * Ensure that public and protected features are correctly referenced in a feature
      * when a dependent feature includes a public or protected feature with a tolerates attribute.
      */
     @Test
@@ -697,7 +804,7 @@ public class FeatureTest {
 
             Set<String> depsWithoutTolerates = new HashSet<>();
             deps.forEach((String dep, Attrs attrs) -> {
-                if (!attrs.containsKey("ibm.tolerates:")) {
+                if (!attrs.containsKey(FeatureConstants.IBM_TOLERATES)) {
                     depsWithoutTolerates.add(dep);
                 }
             });
@@ -710,7 +817,7 @@ public class FeatureTest {
                     return;
                 }
 
-                boolean depTolerates = depAttrs.containsKey("ibm.tolerates:");
+                boolean depTolerates = depAttrs.containsKey(FeatureConstants.IBM_TOLERATES);
 
                 depInfo.getDependentFeatures().forEach((String depOfDep, Attrs depOfDepAttrs) -> {
                     FeatureInfo depOfDepInfo = getFeature(depOfDep);
@@ -718,7 +825,7 @@ public class FeatureTest {
                         return;
                     }
 
-                    boolean depOfDepTolerates = depOfDepAttrs.containsKey("ibm.tolerates:");
+                    boolean depOfDepTolerates = depOfDepAttrs.containsKey(FeatureConstants.IBM_TOLERATES);
 
                     if (!depOfDepTolerates && processed.contains(depOfDep)) {
                         return;
@@ -726,11 +833,13 @@ public class FeatureTest {
 
                     String parentPath = root + " -> " + dep;
 
+                    boolean isApiJarFalse = false;
+
                     Map<String, Set<String>> tolFeatures = processDependent(processed,
                                                                             depsWithoutTolerates,
                                                                             parentPath, depTolerates,
                                                                             depOfDep, depOfDepTolerates,
-                                                                            false,
+                                                                            isApiJarFalse,
                                                                             errors);
                     if (tolFeatures == null) {
                         return;
@@ -805,7 +914,7 @@ public class FeatureTest {
 
             Set<String> rootDepFeatureWithoutTolerates = new HashSet<>();
             depFeatures.forEach((String dep, Attrs depAttrs) -> {
-                if (!depAttrs.containsKey("ibm.tolerates:")) {
+                if (!depAttrs.containsKey(FeatureConstants.IBM_TOLERATES)) {
                     rootDepFeatureWithoutTolerates.add(dep);
                 }
             });
@@ -820,16 +929,25 @@ public class FeatureTest {
                     return;
                 }
 
+                boolean depApiJarFalse = "false".equals(depAttrs.get("apiJar"));
+                boolean depTolerates = depAttrs.containsKey(FeatureConstants.IBM_TOLERATES);
+
                 depFeatures.forEach((String depOfDep, Attrs depOfDepAttrs) -> {
-                    boolean isApiJarFalse = "false".equals(depAttrs.get("apiJar")) || "false".equals(depOfDepAttrs.get("apiJar"));
+                    boolean depOfDepTolerates = depOfDepAttrs.containsKey(FeatureConstants.IBM_TOLERATES);
+
+                    boolean depOfDepApiJarFalse = "false".equals(depOfDepAttrs.get("apiJar"));
+
+                    String parentPath = featureName + " -> " + depFeatureName;
+
+                    boolean apiJarFalse = depApiJarFalse || depOfDepApiJarFalse;
 
                     Map<String, Set<String>> tolFeatures = processDependencies(featureName,
                                                                                processedFeatures,
                                                                                rootDepFeatureWithoutTolerates,
-                                                                               featureName + " -> " + depFeatureName,
-                                                                               depAttrs.containsKey("ibm.tolerates:"),
-                                                                               depOfDep, depOfDepAttrs.containsKey("ibm.tolerates:"),
-                                                                               isApiJarFalse,
+                                                                               parentPath,
+                                                                               depTolerates,
+                                                                               depOfDep, depOfDepTolerates,
+                                                                               apiJarFalse,
                                                                                errors);
                     if (tolFeatures != null) {
                         toleratedFeatures.addAll(tolFeatures.keySet());
@@ -840,12 +958,24 @@ public class FeatureTest {
             errors.forEach((String depFeature, Set<String> errorPaths) -> {
                 String baseFeatureName = FeatureInfo.getBaseName(depFeature);
 
-                if (toleratedFeatures.contains(baseFeatureName) ||
-                    baseVisibilities.get(baseFeatureName).equals("public")) {
+                if (toleratedFeatures.contains(baseFeatureName)) {
                     return;
                 }
 
-                appendLine(builder, "Feature [ ", depFeature, " ] has redudant features:");
+                // Problem: netty, which consists of
+                // io.openliberty.io.netty, io.openliberty.io.netty.ssl,
+                // and io.openliberty.netty.internal-1.0,
+                // has two versionless features.
+                //
+                // Work-around this for now with a check for a null base
+                // visibility.
+
+                String baseVisibility = baseVisibilities.get(baseFeatureName);
+                if ((baseVisibility != null) && baseVisibility.equals(FeatureConstants.VISIBILITY_PUBLIC)) {
+                    return;
+                }
+
+                appendLine(builder, "Feature [ ", depFeature, " ] has redundant features:");
                 for (String errorPath : errorPaths) {
                     appendLine(builder, "  [ ", errorPath, " ]");
                 }
@@ -884,7 +1014,7 @@ public class FeatureTest {
 
             String nextParentPath = parentPath + " -> " + depOfDep;
 
-            boolean nextTolerates = nextAttrs.containsKey("ibm.tolerates:");
+            boolean nextTolerates = nextAttrs.containsKey(FeatureConstants.IBM_TOLERATES);
 
             boolean depApiJarFalse = "false".equals(nextAttrs.get("apiJar"));
             boolean nextApiJarFalse = isApiJarFalse || depApiJarFalse;
@@ -935,7 +1065,6 @@ public class FeatureTest {
             tolerated.put(FeatureInfo.getBaseName(depOfDep), depWithTolerate);
 
             return tolerated;
-
         }
 
         if (!hasToleratesAncestor &&

@@ -1,5 +1,5 @@
 -include= ~${workspace}/cnf/resources/bnd/feature.props
-symbolicName=io.openliberty.connectors-2.1.internal
+symbolicName=io.openliberty.connectors.internal-2.1
 singleton=true
 IBM-API-Package: \
   com.ibm.ws.jca.service; type="internal", \

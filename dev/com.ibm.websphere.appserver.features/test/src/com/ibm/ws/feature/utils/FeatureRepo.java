@@ -26,9 +26,9 @@ import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
-public class FeatureRepository {
+public class FeatureRepo {
 
-    public static FeatureRepository readFeatures(File root) throws IOException {
+    public static FeatureRepo readFeatures(File root) throws IOException {
         FeatureFiles featureFiles = new FeatureFiles(root);
 
         Map<String, FeatureInfo> features = new LinkedHashMap<>(featureFiles.getAllChildren().size());
@@ -47,12 +47,12 @@ public class FeatureRepository {
             });
         });
 
-        return new FeatureRepository(featureFiles, features);
+        return new FeatureRepo(featureFiles, features);
     }
 
     //
 
-    public FeatureRepository(FeatureFiles featureFiles, Map<String, FeatureInfo> features) {
+    public FeatureRepo(FeatureFiles featureFiles, Map<String, FeatureInfo> features) {
         this.featureFiles = featureFiles;
         this.features = features;
 
