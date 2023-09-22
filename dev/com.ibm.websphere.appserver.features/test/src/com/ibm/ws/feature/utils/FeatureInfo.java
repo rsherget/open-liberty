@@ -37,7 +37,7 @@ public class FeatureInfo {
      */
     public static String getProperty(FeatureBuilder builder, String propertyName, String defaultValue) {
         String propertyValue = builder.getProperty(propertyName);
-        return ((propertyValue == null) ? null : propertyValue.trim());
+        return ((propertyValue == null) ? defaultValue : propertyValue.trim());
     }
 
     public static String getProperty(FeatureBuilder builder, String propertyName) {
@@ -58,7 +58,7 @@ public class FeatureInfo {
         if (propertyValue == null) {
             return defaultValue;
         } else {
-            return FeatureBndConstants.BND_TRUE.equals(propertyValue);
+            return FeatureConstants.BND_TRUE.equals(propertyValue);
         }
     }
 
@@ -103,17 +103,17 @@ public class FeatureInfo {
 
         switch (edition.toLowerCase()) {
 
-            case FeatureBndConstants.EDITION_FULL:
+            case FeatureConstants.EDITION_FULL:
                 return 0;
-            case FeatureBndConstants.EDITION_UNSUPPORTED:
+            case FeatureConstants.EDITION_UNSUPPORTED:
                 return 1;
-            case FeatureBndConstants.EDITION_ZOS:
+            case FeatureConstants.EDITION_ZOS:
                 return 2;
-            case FeatureBndConstants.EDITION_ND:
+            case FeatureConstants.EDITION_ND:
                 return 3;
-            case FeatureBndConstants.EDITION_BASE:
+            case FeatureConstants.EDITION_BASE:
                 return 4;
-            case FeatureBndConstants.EDITION_CORE:
+            case FeatureConstants.EDITION_CORE:
                 return 5;
             default:
                 // TODO: Is this correct?
@@ -139,11 +139,11 @@ public class FeatureInfo {
         }
 
         switch (kind.toLowerCase()) {
-            case FeatureBndConstants.KIND_NOSHIP:
+            case FeatureConstants.KIND_NOSHIP:
                 return 0;
-            case FeatureBndConstants.KIND_BETA:
+            case FeatureConstants.KIND_BETA:
                 return 1;
-            case FeatureBndConstants.KIND_GA:
+            case FeatureConstants.KIND_GA:
                 return 2;
             default:
                 // TODO: Is this correct?
@@ -168,7 +168,7 @@ public class FeatureInfo {
         try (FeatureBuilder builder = new FeatureBuilder()) {
             builder.setProperties(this.featureFile);
 
-            this.name = getProperty(builder, FeatureBndConstants.BND_SYMBOLIC_NAME);
+            this.name = getProperty(builder, FeatureConstants.BND_SYMBOLIC_NAME);
 
             int versionIndex = this.name.lastIndexOf('-');
             if (versionIndex != -1) {
@@ -179,18 +179,18 @@ public class FeatureInfo {
                 this.version = null;
             }
 
-            this.shortName = getProperty(builder, FeatureBndConstants.IBM_SHORT_NAME);
+            this.shortName = getProperty(builder, FeatureConstants.IBM_SHORT_NAME);
 
-            this.edition = getProperty(builder, FeatureBndConstants.BND_PRODUCT_EDITION);
-            this.kind = getProperty(builder, FeatureBndConstants.BND_PRODUCT_KIND);
-            this.isSingleton = getProperty(builder, FeatureBndConstants.BND_SINGLETON,
+            this.edition = getProperty(builder, FeatureConstants.BND_PRODUCT_EDITION);
+            this.kind = getProperty(builder, FeatureConstants.BND_PRODUCT_KIND);
+            this.isSingleton = getProperty(builder, FeatureConstants.BND_SINGLETON,
                                            false);
-            this.visibility = getProperty(builder, FeatureBndConstants.BND_VISIBILITY,
-                                          FeatureBndConstants.VISIBILITY_PRIVATE);
+            this.visibility = getProperty(builder, FeatureConstants.BND_VISIBILITY,
+                                          FeatureConstants.VISIBILITY_PRIVATE);
 
             //
 
-            this.isAutoFeature = hasProperty(builder, FeatureBndConstants.IBM_PROVISION_CAPABILITY);
+            this.isAutoFeature = hasProperty(builder, FeatureConstants.IBM_PROVISION_CAPABILITY);
 
             Set<String> useAutoFeatures = builder.getAutoFeatures();
             this.autoFeatures = new LinkedHashSet<String>(useAutoFeatures);
@@ -208,15 +208,15 @@ public class FeatureInfo {
 
             //
 
-            this.isParallelActivationEnabled = hasProperty(builder, FeatureBndConstants.WLP_ACTIVATION_TYPE,
-                                                           FeatureBndConstants.WLP_ACTIVATION_TYPE_PARALLEL);
+            this.isParallelActivationEnabled = hasProperty(builder, FeatureConstants.WLP_ACTIVATION_TYPE,
+                                                           FeatureConstants.WLP_ACTIVATION_TYPE_PARALLEL);
 
-            this.isSetDisableOnConflict = hasProperty(builder, FeatureBndConstants.WLP_DISABLE_ALL_FEATURES_ON_CONFLICT);
-            this.isDisableOnConflictEnabled = getProperty(builder, FeatureBndConstants.WLP_DISABLE_ALL_FEATURES_ON_CONFLICT,
+            this.isSetDisableOnConflict = hasProperty(builder, FeatureConstants.WLP_DISABLE_ALL_FEATURES_ON_CONFLICT);
+            this.isDisableOnConflictEnabled = getProperty(builder, FeatureConstants.WLP_DISABLE_ALL_FEATURES_ON_CONFLICT,
                                                           true);
 
-            this.isSetAlsoKnownAs = hasProperty(builder, FeatureBndConstants.WLP_ALSO_KNOWN_AS);
-            this.alsoKnownAs = getProperty(builder, FeatureBndConstants.WLP_ALSO_KNOWN_AS);
+            this.isSetAlsoKnownAs = hasProperty(builder, FeatureConstants.WLP_ALSO_KNOWN_AS);
+            this.alsoKnownAs = getProperty(builder, FeatureConstants.WLP_ALSO_KNOWN_AS);
         }
     }
 
@@ -229,12 +229,9 @@ public class FeatureInfo {
      *         the feature edition, and the feature product kind.
      */
     public String printFeature() {
-        String featureName = getName();
-        String featureFileName = getFeatureFileName();
-
         StringBuilder builder = new StringBuilder();
         builder.append("Feature: [");
-        builder.append(featureName);
+        builder.append(getName());
         builder.append("]");
         builder.append(" Edition: [");
         builder.append(getEdition());
@@ -243,11 +240,9 @@ public class FeatureInfo {
         builder.append(getKind());
         builder.append("]");
 
-        if (!featureName.equals(featureFileName)) {
-            builder.append(" File [ ");
-            builder.append(featureFileName);
-            builder.append(" ]");
-        }
+        builder.append(" File [ ");
+        builder.append(getFeatureFile().getName());
+        builder.append(" ]");
 
         return builder.toString();
     }
@@ -262,7 +257,7 @@ public class FeatureInfo {
 
     public String getFeatureFileName() {
         String fileName = getFeatureFile().getName();
-        int index = fileName.lastIndexOf(FeatureFiles.FEATURE_FILE_EXT);
+        int index = fileName.lastIndexOf(FeatureFileConstants.FEATURE_FILE_EXT);
         return ((index == -1) ? fileName : fileName.substring(0, index));
     }
 
@@ -305,27 +300,27 @@ public class FeatureInfo {
     }
 
     public boolean isBase() {
-        return FeatureBndConstants.EDITION_BASE.equals(getEdition());
+        return FeatureConstants.EDITION_BASE.equals(getEdition());
     }
 
     public boolean isFull() {
-        return FeatureBndConstants.EDITION_FULL.equals(getEdition());
+        return FeatureConstants.EDITION_FULL.equals(getEdition());
     }
 
     public boolean isND() {
-        return FeatureBndConstants.EDITION_ND.equals(getEdition());
+        return FeatureConstants.EDITION_ND.equals(getEdition());
     }
 
     public boolean isCore() {
-        return FeatureBndConstants.EDITION_CORE.equals(getEdition());
+        return FeatureConstants.EDITION_CORE.equals(getEdition());
     }
 
     public boolean isZOS() {
-        return FeatureBndConstants.EDITION_ZOS.equals(getEdition());
+        return FeatureConstants.EDITION_ZOS.equals(getEdition());
     }
 
     public boolean isUnsupported() {
-        return FeatureBndConstants.EDITION_UNSUPPORTED.equals(getEdition());
+        return FeatureConstants.EDITION_UNSUPPORTED.equals(getEdition());
     }
 
     public String getKind() {
@@ -337,15 +332,15 @@ public class FeatureInfo {
     }
 
     public boolean isNoShip() {
-        return FeatureBndConstants.KIND_NOSHIP.equals(getKind());
+        return FeatureConstants.KIND_NOSHIP.equals(getKind());
     }
 
     public boolean isBeta() {
-        return FeatureBndConstants.KIND_BETA.equals(getKind());
+        return FeatureConstants.KIND_BETA.equals(getKind());
     }
 
     public boolean isGA() {
-        return FeatureBndConstants.KIND_GA.equals(getKind());
+        return FeatureConstants.KIND_GA.equals(getKind());
     }
 
     //
@@ -359,6 +354,18 @@ public class FeatureInfo {
 
     public String getVisibility() {
         return visibility;
+    }
+
+    public boolean isPrivate() {
+        return FeatureConstants.VISIBILITY_PRIVATE.equals(getVisibility());
+    }
+
+    public boolean isProtected() {
+        return FeatureConstants.VISIBILITY_PROTECTED.equals(getVisibility());
+    }
+
+    public boolean isPublic() {
+        return FeatureConstants.VISIBILITY_PUBLIC.equals(getVisibility());
     }
 
     //
@@ -397,12 +404,12 @@ public class FeatureInfo {
         return dependentFeatures;
     }
 
-    public void forEachDep(FeatureRepository repo,
+    public void forEachDep(FeatureRepo repo,
                            Consumer<FeatureInfo> consumer) {
         forEachDepName((String dep) -> consumer.accept(repo.getFeature(dep)));
     }
 
-    public void forEachResolvedDep(FeatureRepository repo,
+    public void forEachResolvedDep(FeatureRepo repo,
                                    Consumer<FeatureInfo> consumer) {
 
         forEachDepName((String dep) -> {

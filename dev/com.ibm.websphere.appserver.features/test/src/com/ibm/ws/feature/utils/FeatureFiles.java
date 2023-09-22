@@ -21,9 +21,6 @@ import java.util.Set;
 
 public class FeatureFiles {
 
-    public static final String FEATURE_FILE_ROOT = "./visibility";
-    public static final String FEATURE_FILE_EXT = ".feature";
-
     public FeatureFiles(File root) {
         Map<File, Set<File>> useCategories = new LinkedHashMap<>();
         Set<File> useAllChildren = collect(root, useCategories);
@@ -32,10 +29,10 @@ public class FeatureFiles {
         this.categories = useCategories;
         this.allChildren = useAllChildren;
 
-        this.autoChildren = this.categories.get(this.autoFile = new File(this.root, FeatureBndConstants.VISIBILITY_AUTO));
-        this.privateChildren = this.categories.get(this.privateFile = new File(this.root, FeatureBndConstants.VISIBILITY_PRIVATE));
-        this.protectedChildren = this.categories.get(this.protectedFile = new File(this.root, FeatureBndConstants.VISIBILITY_PROTECTED));
-        this.publicChildren = this.categories.get(this.publicFile = new File(this.root, FeatureBndConstants.VISIBILITY_PUBLIC));
+        this.autoChildren = this.categories.get(this.autoFile = new File(this.root, FeatureConstants.VISIBILITY_AUTO));
+        this.privateChildren = this.categories.get(this.privateFile = new File(this.root, FeatureConstants.VISIBILITY_PRIVATE));
+        this.protectedChildren = this.categories.get(this.protectedFile = new File(this.root, FeatureConstants.VISIBILITY_PROTECTED));
+        this.publicChildren = this.categories.get(this.publicFile = new File(this.root, FeatureConstants.VISIBILITY_PUBLIC));
     }
 
     private final File root;
@@ -68,13 +65,13 @@ public class FeatureFiles {
     public File getCategoryFile(String categoryName) {
         if (categoryName == null) {
             return null;
-        } else if (categoryName.contentEquals(FeatureBndConstants.VISIBILITY_AUTO)) {
+        } else if (categoryName.contentEquals(FeatureConstants.VISIBILITY_AUTO)) {
             return autoFile;
-        } else if (categoryName.contentEquals(FeatureBndConstants.VISIBILITY_PRIVATE)) {
+        } else if (categoryName.contentEquals(FeatureConstants.VISIBILITY_PRIVATE)) {
             return privateFile;
-        } else if (categoryName.contentEquals(FeatureBndConstants.VISIBILITY_PROTECTED)) {
+        } else if (categoryName.contentEquals(FeatureConstants.VISIBILITY_PROTECTED)) {
             return protectedFile;
-        } else if (categoryName.contentEquals(FeatureBndConstants.VISIBILITY_PUBLIC)) {
+        } else if (categoryName.contentEquals(FeatureConstants.VISIBILITY_PUBLIC)) {
             return publicFile;
         } else {
             return null;
@@ -166,7 +163,7 @@ public class FeatureFiles {
             if (child.isDirectory()) {
                 // The category contains all nested feature files.
                 category.addAll(FeatureFiles.collect(child, categories));
-            } else if (child.getName().endsWith(FEATURE_FILE_EXT)) {
+            } else if (child.getName().endsWith(FeatureFileConstants.FEATURE_FILE_EXT)) {
                 // The category contains all immediate feature files.
                 category.add(child);
             } else {

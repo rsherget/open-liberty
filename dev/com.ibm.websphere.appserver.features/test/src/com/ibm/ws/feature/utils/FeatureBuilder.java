@@ -67,21 +67,21 @@ public class FeatureBuilder extends Builder {
     //
 
     public void setSubsystemSymbolicName(Parameters parameters) throws IOException {
-        setProperty(FeatureBndConstants.SUBSYSTEM_SYMBOLIC_NAME, parameters);
+        setProperty(FeatureConstants.SUBSYSTEM_SYMBOLIC_NAME, parameters);
     }
 
     public void setSubsystemContent(Parameters parameters) throws IOException {
-        setProperty(FeatureBndConstants.SUBSYSTEM_CONTENT, parameters);
+        setProperty(FeatureConstants.SUBSYSTEM_CONTENT, parameters);
     }
 
     public void setAppliesTo(String name, Attrs attributes) throws IOException {
-        setProperty(FeatureBndConstants.IBM_APPLIES_TO, asParameters(name, attributes));
+        setProperty(FeatureConstants.IBM_APPLIES_TO, asParameters(name, attributes));
     }
 
     //
 
     public Parameters getSubsystemContent() {
-        return getParameters(FeatureBndConstants.SUBSYSTEM_CONTENT);
+        return getParameters(FeatureConstants.SUBSYSTEM_CONTENT);
     }
 
     //
@@ -89,10 +89,10 @@ public class FeatureBuilder extends Builder {
     /**
      * Retrieve content of a specified type as a set of entries.
      *
-     * Expected content types are {@link FeatureBndConstants#CONTENT_FILES},
-     * {@link FeatureBndConstants#CONTENT_JARS}, {@link FeatureBndConstants#CONTENT_FEATURES},
-     * {@link FeatureBndConstants#CONTENT_BUNDLES}, and
-     * {@link FeatureBndConstants#IBM_PROVISION_CAPABILITY}.
+     * Expected content types are {@link FeatureConstants#CONTENT_FILES},
+     * {@link FeatureConstants#CONTENT_JARS}, {@link FeatureConstants#CONTENT_FEATURES},
+     * {@link FeatureConstants#CONTENT_BUNDLES}, and
+     * {@link FeatureConstants#IBM_PROVISION_CAPABILITY}.
      *
      * @param contentType The type of content which is requested.
      *
@@ -108,36 +108,32 @@ public class FeatureBuilder extends Builder {
     }
 
     public Set<Map.Entry<String, Attrs>> getFiles() {
-        return getContent(FeatureBndConstants.CONTENT_FILES);
+        return getContent(FeatureConstants.CONTENT_FILES);
     }
 
     public Set<Map.Entry<String, Attrs>> getJars() {
-        return getContent(FeatureBndConstants.CONTENT_JARS);
+        return getContent(FeatureConstants.CONTENT_JARS);
     }
 
     public Set<Map.Entry<String, Attrs>> getFeatures() {
-        return getContent(FeatureBndConstants.CONTENT_FEATURES);
+        return getContent(FeatureConstants.CONTENT_FEATURES);
     }
 
     public Set<Map.Entry<String, Attrs>> getBundles() {
-        return getContent(FeatureBndConstants.CONTENT_BUNDLES);
+        return getContent(FeatureConstants.CONTENT_BUNDLES);
     }
 
     public Set<Map.Entry<String, Attrs>> getIBMProvisionCapability() {
-        return getContent(FeatureBndConstants.IBM_PROVISION_CAPABILITY);
+        return getContent(FeatureConstants.IBM_PROVISION_CAPABILITY);
     }
 
     //
 
-    private static final String OSGI_PREFIX = "osgi.identity=";
-
-    private static final String[] IGNORED_AUTOFEATURE_PREFIXES = new String[] { "com.", "io.openliberty." };
-
     /**
-     * Answer auto feature names. These are the {@link #OSGI_PREFIX}
-     * values from {@link FeatureBndConstants#IBM_PROVISION_CAPABILITY} content types.
+     * Answer auto feature names. These are the {@link FeatureConstants#OSGI_IDENTITY_PREFIX}
+     * values from {@link FeatureConstants#IBM_PROVISION_CAPABILITY} content types.
      *
-     * Ignore any names which begin with one of {@link #IGNORED_AUTOFEATURE_PREFIXES}:
+     * Ignore any names which begin with one of {@link FeatureConstants#IGNORED_AUTOFEATURE_PREFIXES}:
      * These should never be set as auto-features.
      *
      * @return Auto-feature names.
@@ -148,10 +144,10 @@ public class FeatureBuilder extends Builder {
 
         Set<String> autoFeatures = new HashSet<>();
 
-        String[] osgiIdentities = capabilitiesText.split(OSGI_PREFIX);
+        String[] osgiIdentities = capabilitiesText.split(FeatureConstants.OSGI_IDENTITY_PREFIX);
         for (String osgiIdentity : osgiIdentities) {
             boolean ignore = false;
-            for (String ignoredPrefix : IGNORED_AUTOFEATURE_PREFIXES) {
+            for (String ignoredPrefix : FeatureConstants.IGNORED_AUTOFEATURE_PREFIXES) {
                 if (osgiIdentity.startsWith(ignoredPrefix)) {
                     ignore = true;
                     break;
@@ -165,7 +161,6 @@ public class FeatureBuilder extends Builder {
         }
 
         return autoFeatures;
-
     }
 
     private String trimAutofeature(String autoFeature) {
