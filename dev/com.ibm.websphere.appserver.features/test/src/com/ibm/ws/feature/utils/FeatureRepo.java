@@ -28,6 +28,20 @@ import java.util.function.Consumer;
 
 public class FeatureRepo {
 
+    /**
+     * Create and populate a feature repository with features
+     * read from a root directory.
+     *
+     * Thrown an exception if the read fails, or if any duplicate features
+     * are detected.
+     *
+     * @param root The root folder containing feature files.
+     *
+     * @return The populated feature repository.
+     *
+     * @throws IOException Thrown if the read fails, or if there are
+     *             duplicate features in different files.
+     */
     public static FeatureRepo readFeatures(File root) throws IOException {
         FeatureFiles featureFiles = new FeatureFiles(root);
 
@@ -35,8 +49,27 @@ public class FeatureRepo {
 
         for (File featureFile : featureFiles.getAllChildren()) {
             FeatureInfo feature = new FeatureInfo(featureFile);
-            features.put(feature.getName(), feature);
+            String featureName = feature.getName();
+
+            // TODO: Return a list of duplicating features: We want to
+            //       capture the entire list.
+
+            // TODO: Feature file -> feature name mismatches should perhaps
+            //       be detected here.
+
+            FeatureInfo priorFeature = features.get(featureName);
+            if (priorFeature != null) {
+                String message = "Duplicate feature [ " + featureName + "]" +
+                                 ": Loaded previously from [ " + priorFeature.getFeatureFile().getPath() + " ]" +
+                                 ": Duplicate load from [ " + featureFile.getPath() + " ]";
+                throw new IOException(message);
+
+            } else {
+                features.put(feature.getName(), feature);
+            }
         }
+
+        // TODO: These back-pointers are populated, but have no current uses.
 
         features.values().forEach((FeatureInfo feature) -> {
             feature.getAutoFeatures().forEach((String autoFeatureName) -> {
