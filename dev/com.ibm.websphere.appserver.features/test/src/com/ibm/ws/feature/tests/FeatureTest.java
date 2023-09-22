@@ -56,6 +56,10 @@ public class FeatureTest {
         return getRepository().getNumFeatures();
     }
 
+    public static Map<String, FeatureInfo> getFeatures() {
+        return getRepository().getFeatures();
+    }
+
     public Map<String, String> getBaseVisibilities() {
         return getRepository().getBaseVisibilities();
     }
@@ -70,9 +74,17 @@ public class FeatureTest {
 
     //
 
+    /**
+     * Verify that each feature file name matches the feature name.
+     *
+     * Each feature is required to be in a file which has the feature name plus ".feature".
+     */
     @Test
     public void testFileNames() {
         StringBuilder builder = new StringBuilder();
+
+        // TODO: This perhaps should be tested when building the feature
+        //       repository.  See 'FeatureRepository.readFeatures'.
 
         forEach((FeatureInfo featureInfo) -> {
             String featureName = featureInfo.getName();
@@ -88,6 +100,18 @@ public class FeatureTest {
         maybeFail(builder, title);
     }
 
+    /**
+     * Verify that each feature is in the appropriate visibility folder.
+     *
+     * All auto-features must be private. (This is tested elsewhere.)
+     *
+     * Public and protected features must be under their corresponding
+     * visibility folder.
+     *
+     * Private features which are not auto features must be under the
+     * private visibility folder. Private auto features must be under
+     * the auto visibility folder.
+     */
     @Test
     public void testVisibilityFile() {
         StringBuilder builder = new StringBuilder();
@@ -101,7 +125,7 @@ public class FeatureTest {
 
             String visibilityCategory;
             if (featureInfo.isAutoFeature()) {
-                if (!FeatureConstants.VISIBILITY_PRIVATE.equals(visibility)) {
+                if (!featureInfo.isPrivate()) {
                     // This is an error; caught elsewhere.
                     return;
                 }
@@ -126,8 +150,14 @@ public class FeatureTest {
         maybeFail(builder, title);
     }
 
+    /**
+     * Verify that the visibility of a feature does not change across
+     * its versions.
+     *
+     * TODO: This will need to be reviewed relative to versionless features.
+     */
     @Test
-    public void testBaseVisibility() {
+    public void testVisibilityBase() {
         StringBuilder builder = new StringBuilder();
 
         int numFeatures = getNumFeatures();
@@ -153,9 +183,9 @@ public class FeatureTest {
                 String priorFeature = baseFeatures.get(baseName);
 
                 appendLine(builder,
-                           " Base name [ ", baseName, " ] conflict:",
+                           "  Base name [ ", baseName, " ] conflict:",
                            " Feature [ ", name, " : ", visibility, " ]: ",
-                           " Prior feature [ ", priorFeature, " ] [ ", priorVisibility, " ]");
+                           " Prior feature [ ", priorFeature, " : ", priorVisibility, " ]");
             }
         });
 
@@ -167,17 +197,20 @@ public class FeatureTest {
      * Perform visibility related checks:
      *
      * <ul>
-     * <li>The visibility must be one of the four allowed values: auto, private, protected, or public.</li>
+     * <li>The visibility must be one of the four allowed values: auto,
+     * private, protected, or public.</li>
      * <li>Auto-features must be private.</li>
-     * <li>Public features must have a short name and must be in a sub-directory that has that name.</li>
-     * <li>Non-public admin-center features must have a short name, and must be in a sub-directory
+     * <li>Public features must have a short name and must be in a sub-directory
      * that has that name.</li>
-     * <li>Non-public non-admin-center features must not have a short name, and must be directly in
-     * the visibility subdirectory.</li>
+     * <li>Non-public admin-center features must have a short name, and must be
+     * in a sub-directory that has that name.</li>
+     * <li>Non-public non-admin-center features must not have a short name,
+     * and must be directly in the visibility subdirectory.</li>
      * <li>Non-public features must not disable all features on conflict.</li>
      * <li>Non-public features must not set also-known-as.</li>
      * </ul>
      */
+    @SuppressWarnings("null")
     @Test
     public void testVisibilityAttributes() {
         StringBuilder builder = new StringBuilder();
@@ -201,8 +234,9 @@ public class FeatureTest {
                 !visibility.equals(FeatureConstants.VISIBILITY_PROTECTED) &&
                 !(isPublic = visibility.equals(FeatureConstants.VISIBILITY_PUBLIC))) {
 
+                // TODO: This perhaps should be tested separately.
                 appendLine(builder,
-                           "Feature [ ", featureName, " ]",
+                           "  Feature [ ", featureName, " ]",
                            " has unknown visibility [ ", visibility, " ]");
                 return;
             }
@@ -211,7 +245,7 @@ public class FeatureTest {
             if (featureInfo.isAutoFeature()) {
                 if (!isPrivate) {
                     appendLine(builder,
-                               "Auto-feature [ ", featureName, " ] is [ ", visibility, " ]",
+                               "  Auto-feature [ ", featureName, " ] is [ ", visibility, " ]",
                                " but should be [ ", FeatureConstants.VISIBILITY_PRIVATE, " ]");
                 }
                 fileVisibility = FeatureConstants.VISIBILITY_AUTO;
@@ -219,21 +253,21 @@ public class FeatureTest {
                 fileVisibility = visibility;
             }
 
-            boolean inSubDir;
+            boolean expectFeatureDir;
             if (isPublic || isAdminCenter) {
-                inSubDir = true;
+                expectFeatureDir = true;
 
                 if (shortName == null) {
                     appendLine(builder,
-                               "Public or adminCenter feature [ ", featureName, " ]",
+                               "  Public or adminCenter feature [ ", featureName, " ]",
                                " has no short name");
                 }
             } else {
-                inSubDir = false;
+                expectFeatureDir = false;
 
                 if (shortName != null) {
                     appendLine(builder,
-                               "Non-public, non-adminCenter feature [ ", featureName, " ]",
+                               "  Non-public, non-adminCenter feature [ ", featureName, " ]",
                                " has short name [ ", shortName, " ]");
                 }
             }
@@ -241,13 +275,13 @@ public class FeatureTest {
             if (!isPublic) {
                 if (featureInfo.isSetDisableOnConflict() && featureInfo.isAutoFeature()) {
                     appendLine(builder,
-                               "Non-public auto feature [ ", featureName, " ]",
+                               "  Non-public auto feature [ ", featureName, " ]",
                                " has disallowed [ ", FeatureConstants.WLP_DISABLE_ALL_FEATURES_ON_CONFLICT, " ]");
                 }
 
                 if (featureInfo.isSetAlsoKnownAs()) {
                     appendLine(builder,
-                               "Non-public feature [ ", featureName, " ]",
+                               "  Non-public feature [ ", featureName, " ]",
                                " has non-null [ ", FeatureConstants.WLP_ALSO_KNOWN_AS, " ]",
                                " [ ", featureInfo.getAlsoKnownAs(), " ]");
                 }
@@ -259,7 +293,7 @@ public class FeatureTest {
             String subDirName;
             String categoryName;
 
-            if (inSubDir) {
+            if (expectFeatureDir) {
                 subDirName = firstParentName;
                 File secondParent = firstParent.getParentFile();
                 categoryName = ((secondParent == null) ? null : secondParent.getName());
@@ -270,25 +304,39 @@ public class FeatureTest {
 
             if (!categoryName.equals(fileVisibility)) {
                 appendLine(builder,
-                           "Feature [ ", featureName, " ]",
+                           "  Feature [ ", featureName, " ]",
                            " in [ ", categoryName, " ]",
                            " should be in [ ", fileVisibility, " ]");
             }
 
-            if (inSubDir) {
+            if (expectFeatureDir) {
                 if (!subDirName.equals(shortName)) {
                     appendLine(builder,
-                               "Feature [ ", featureName, " ] in [ ", subDirName, " ]",
+                               "  Feature [ ", featureName, " ] in [ ", subDirName, " ]",
                                " must be in [ ", shortName, " ]");
                 }
             }
         });
 
-        String title = "Visibility Errors:";
-
+        String title = "Feature visibility errors:";
         maybeFail(builder, title);
     }
 
+    /**
+     * Verify product editions:
+     *
+     * <ul>
+     * <ul>Each feature must have a valid product edition value.</ul>
+     * <ul>Each feature must have a correct relationship with its dependent features:
+     * The feature edition level must not be greater than the edition level of
+     * any of its dependent features. For example, a Core feature must not
+     * depend on a ZOS feature.</ul>
+     * </li>
+     * </ul>
+     *
+     * Editions are assigned levels in the following (increasing) order:
+     * Full, Unsupported, ZOS, ND, Base, Core, Unknown.
+     */
     @Test
     public void testProductEditions() {
         StringBuilder builder = new StringBuilder();
@@ -316,7 +364,7 @@ public class FeatureTest {
 
                 if (depLevel < editionLevel) {
                     appendLine(builder,
-                               "Feature [ ", featureInfo.getName(), " ] with edition [ ", edition, " ]",
+                               "  Feature [ ", featureInfo.getName(), " ] with edition [ ", edition, " ]",
                                " conflicts with [ " + dep.getName(), " ] with edition [ ", depEdition, " ]");
                 }
             }
@@ -327,6 +375,11 @@ public class FeatureTest {
     }
 
     /**
+     * Verify the edition of a feature. That is, does the feature have a
+     * currently supported value (Base, Core, or Full), and, if the feature
+     * edition is "Full" it must have a kind of "Noship", if the feature has
+     * a kind of "Noship" it must have an edition of "Full".
+     *
      * Features that are marked ga or beta should be in core or base edition in open liberty.
      * Features that are marked noship should be in full edition. This test validates
      * that the edition is marked correctly.
@@ -340,7 +393,7 @@ public class FeatureTest {
         // "base", "core", "full"
         if ((editionLevel != 4) && (editionLevel != 5) && (editionLevel != 0)) {
             appendLine(builder,
-                       "Feature [ ", feature, " ] has unsupported edition [ ", edition, " ]");
+                       "  Feature [ ", feature, " ] has unsupported edition [ ", edition, " ]");
             return false;
 
         } else {
@@ -350,16 +403,16 @@ public class FeatureTest {
             if (editionLevel == 0) { // "full"
                 if (kindLevel != 0) { // "noship"
                     appendLine(builder,
-                               "Feature [ ", feature, " ]",
+                               "  Feature [ ", feature, " ]",
                                " has edition [ ", edition, " ] and kind [ ", kind, " ]",
                                " but must have kind [ ", FeatureConstants.KIND_NOSHIP, " ]");
                     return false;
                 }
 
             } else {
-                if (kindLevel == 0) {
+                if (kindLevel == 0) { // "noship"
                     appendLine(builder,
-                               "Feature [ ", feature, " ]",
+                               "  Feature [ ", feature, " ]",
                                " has kind [ ", kind, " ] and edition [ ", edition, " ]",
                                " but must have edition [ ", FeatureConstants.EDITION_FULL, " ]");
                     return false;
@@ -370,6 +423,15 @@ public class FeatureTest {
         return true;
     }
 
+    /**
+     * Verify the kind of a feature.
+     *
+     * The kind must be NoShip, Beta, or GA.
+     *
+     * A feature kind level must not be greater than the kind level
+     * of any of the feature's dependents. For example, a GA feature
+     * may not depend on a Beta feature.
+     */
     @Test
     public void testProductKinds() {
         StringBuilder builder = new StringBuilder();
@@ -381,7 +443,7 @@ public class FeatureTest {
             int kindLevel = featureInfo.getKindLevel();
             if ((kindLevel != 0) && (kindLevel != 1) && (kindLevel != 2)) {
                 appendLine(builder,
-                           "Feature [ ", feature, " ] has unsupported kind [ ", kind, " ]");
+                           "  Feature [ ", feature, " ] has unsupported kind [ ", kind, " ]");
                 return;
             }
 
@@ -393,7 +455,7 @@ public class FeatureTest {
                 int depLevel = dep.getKindLevel();
                 if (depLevel < kindLevel) {
                     appendLine(builder,
-                               "Feature [ ", feature, " ] with kind [ ", kind, " ]",
+                               "  Feature [ ", feature, " ] with kind [ ", kind, " ]",
                                " conflicts with [ ", dep.getName(), " ] with kind [ ", dep.getKind(), " ]");
                 }
             });
@@ -418,15 +480,14 @@ public class FeatureTest {
      * a singleton. This fails the prior cohorts test.
      */
     @Test
-    public void testSingleton() {
+    public void testSingletonFeatures() {
         StringBuilder builder = new StringBuilder();
-
-        String title = "Feature singleton errors:";
 
         forEach((FeatureInfo featureInfo) -> {
             if (featureInfo.isAutoFeature() && featureInfo.isSingleton()) {
                 appendLine(builder,
-                           "Auto-feature [ ", featureInfo.getName(), " ] incorrectly marked as singleton.");
+                           "  Auto-feature [ ", featureInfo.getName(), " ]",
+                           " incorrectly marked as singleton.");
             }
         });
 
@@ -450,33 +511,44 @@ public class FeatureTest {
                     // "io.openliberty.persistence-3.1" (versioned, 3.1, singleton)
                     // "io.openliberty.persistence-3.2" (versioned, 3.2, singleton)
 
+                    // TODO: netty, which consists of io.openliberty.io.netty,
+                    // io.openliberty.io.netty.ssl, and io.openliberty.netty.internal-1.0,
+                    // has two versionless features.
+                    //
+                    // Any paths which are are added for versionless features must
+                    // know to skip the two netty features which are missing versions.
+
                     if (!featureInfo.isSingleton() && !featureInfo.isVersionless()) {
                         appendLine(builder,
-                                   "Non-singleton [ ", featureInfo.getName(), " ] has [ ", Integer.toString(element.size()), " ] cohorts");
+                                   "  Non-singleton [ ", featureInfo.getName(), " ]",
+                                   " has [ ", Integer.toString(element.size()), " ] cohorts");
                     }
                 });
             });
         });
 
+        String title = "Feature singleton errors:";
         maybeFail(builder, title);
     }
 
+    /**
+     * Verify that no dependent feature is an auto feature.
+     */
     @Test
-    public void testDependingOnAutoFeature() {
+    public void testDependentAutoFeature() {
         StringBuilder builder = new StringBuilder();
-
-        String title = "Auto-feature errors:";
 
         forEach((FeatureInfo featureInfo) -> {
             featureInfo.forEachResolvedDep(getRepository(), (FeatureInfo dep) -> {
                 if (dep.isAutoFeature()) {
                     appendLine(builder,
-                               "Feature [ ", featureInfo.getName(), " ]",
+                               "  Feature [ ", featureInfo.getName(), " ]",
                                " depends on auto-feature [ ", dep.getName(), " ]");
                 }
             });
         });
 
+        String title = "Dependent auto-feature errors:";
         maybeFail(builder, title);
     }
 
@@ -526,6 +598,15 @@ public class FeatureTest {
     // Parallel activation [ io.openliberty.mpJwt-2.0 ] conflicts with [ io.openliberty.appSecurity-4.0 ]
     // Parallel activation [ io.openliberty.mpJwt-2.1 ] conflicts with [ com.ibm.websphere.appserver.jwt-1.0 ]
 
+    /**
+     * Verify the parallel activation setting between features and their dependents.
+     *
+     * Any feature which has parallel activation enabled must have parallel activation
+     * enabled in all of its dependents.
+     *
+     * This test is currently disabled: The state of support for parallel activation
+     * is currently unknown. If enabled, numerous features fail the validation.
+     */
     // @Test
     public void testParallelActivation() {
         StringBuilder builder = new StringBuilder();
@@ -538,23 +619,25 @@ public class FeatureTest {
             featureInfo.forEachResolvedDep(getRepository(), (FeatureInfo dep) -> {
                 if (!dep.isParallelActivationEnabled()) {
                     appendLine(builder,
-                               "Parallel activation [ ", featureInfo.getName() + " ]",
+                               "  Parallel activation [ ", featureInfo.getName() + " ]",
                                " conflicts with [ ", dep.getName(), " ]");
                 }
             });
         });
 
-        String title = "Parallel activation errors:";
+        String title = "Feature parallel activation errors:";
         maybeFail(builder, title);
     }
 
     /**
-     * Locate features which have disable-on-conflict-enabled disabled,
-     * and which have dependencies which have disable-on-conflict-enabled enabled.
+     * Validate disable-on-conflict-enabled settings between features
+     * and their dependents:
      *
-     * @param conflicts Storage for conflicts.
+     * A feature which does not have disable-on-conflict-enabled set
+     * must not have a dependent which has disable-on-conflict enabled set.
      */
-    protected void validateOnConflicts(Map<FeatureInfo, Set<FeatureInfo>> conflicts) {
+    @Test
+    public void testOnConflictsFeatures() {
         StringBuilder builder = new StringBuilder();
 
         forEach((FeatureInfo featureInfo) -> {
@@ -566,7 +649,7 @@ public class FeatureTest {
                 if (dep.isDisableOnConflictEnabled()) {
                     appendLine(builder,
                                "  Feature [ ", featureInfo.getName() + " ] is not enabled;",
-                               "  dependent [ ", dep.getName(), " ] is enabled");
+                               " dependent [ ", dep.getName(), " ] is enabled");
                 }
             });
         });
@@ -602,6 +685,18 @@ public class FeatureTest {
     // Used by com.ibm.websphere.appserver.jcaInboundSecurity-1.0
     public static final String FEATURE_JCA_16 = "com.ibm.websphere.appserver.jca-1.6";
 
+    /**
+     * Test of features which are permitted to be absent.
+     *
+     * Several features are allowed to be absent. Currently, this is allowed
+     * because the initial feature version is only available in Commercial
+     * Liberty. The feature absence is accepted because the dependency
+     * tolerates values include feature versions which are present.
+     *
+     * @param featureName The name of a dependency feature.
+     *
+     * @return True or false, telling if the feature is allowed to be missing.
+     */
     public static boolean permitAbsence(String featureName) {
         return (featureName.equals(FEATURE_SERVLET_30) ||
                 featureName.equals(FEATURE_SERVLET_INTERNAL_30) ||
@@ -609,8 +704,15 @@ public class FeatureTest {
                 featureName.equals(FEATURE_JCA_16));
     }
 
+    /**
+     * Verify that all dependent features are present.
+     *
+     * Feature dependencies are specified by feature name. Except for specific
+     * exceptions, all of the dependent feature names must match existing
+     * features. (See {@link #permitAbsence(String)}.
+     */
     @Test
-    public void testDependencies() {
+    public void testMissingDependencies() {
         StringBuilder builder = new StringBuilder();
 
         List<String> missingDeps = new ArrayList<>();
@@ -628,26 +730,29 @@ public class FeatureTest {
 
             if (!missingDeps.isEmpty()) {
                 appendLine(builder,
-                           "Feature [ ", featureInfo.getName(), " ]",
+                           "  Feature [ ", featureInfo.getName(), " ]",
                            " unresolved [ ", missingDeps.toString(), " ]");
             }
         });
 
-        String title = "Missing dependents errors:";
+        String title = "Feature missing dependents errors:";
         maybeFail(builder, title);
     }
 
     /**
-     * Tests that an auto feature has more than one feature in its filter.
+     * Verify that all auto feature have more than one auto feature.
      */
     @Test
-    public void testAutoFeatures() {
+    public void testAutoFeatureMultiplicity() {
         StringBuilder builder = new StringBuilder();
 
         forEach((FeatureInfo featureInfo) -> {
             if (!featureInfo.isAutoFeature()) {
                 return;
             }
+
+            // TODO: There are no tests on activating features.
+            // Should this be using 'getActivatingAutoFeatures' instead??
 
             Set<String> autoFeatures = featureInfo.getAutoFeatures();
             if (autoFeatures.size() > 1) {
@@ -658,25 +763,34 @@ public class FeatureTest {
 
             if (autoFeatures.isEmpty()) {
                 appendLine(builder,
-                           "  Auto feature [ ", featureName, " ] has no cohorts.");
+                           "  Auto feature [ ", featureName, " ] has no auto features.");
 
             } else {
                 String auto = autoFeatures.iterator().next();
 
                 appendLine(builder,
                            "  Auto feature [ ", featureName, " ]",
-                           " has exactly one cohort [ ", auto, " ]");
+                           " has exactly one auto feature [ ", auto, " ]");
                 appendLine(builder,
-                           "The cohort should be made a dependency feature",
-                           " or a dependency private feature.");
+                           "  The feature and/or bundle dependencies in this auto",
+                           " feature should just be a dependency of that feature.");
+                appendLine(builder, "  OR this should be turned into a private feature",
+                           " that [ " + auto + " ] depends on.");
             }
         });
 
-        String title = "Auto-feature errors:";
+        String title = "Feature auto-feature errors:";
+
         maybeFail(builder, title);
     }
 
     /**
+     * Verify that all features which are in their own directory have a localization.
+     * resource.
+     *
+     * All public and all adminCenter features are required to be in their own directory.
+     * All other features are required to be directly in a visibility directory.
+     *
      * This test makes sure that public features have properties files that match the long
      * feature name. When moving features to the io.openliberty prefix from com.ibm.websphere.appserver
      * and vice versa, the properties file renames were missed a few times. This unit test
@@ -692,6 +806,7 @@ public class FeatureTest {
             if (!featureInfo.isPublic()) {
                 // AdminCenter features have resources.
                 if (!featureName.startsWith("com.ibm.websphere.appserver.adminCenter.tool")) {
+                    // TODO: Verify that the feature does NOT have a resources folder?
                     return;
                 }
             }
@@ -703,34 +818,44 @@ public class FeatureTest {
 
             if (!resourceFile.exists()) {
                 appendLine(builder,
-                           "Feature [ ", featureName, " ] missing expected resources [ ", resourceFile.getPath(), " ]");
+                           "  Feature [ ", featureName, " ] missing expected resources [ ", resourceFile.getPath(), " ]");
             }
         });
 
-        String title = "Feature localization error:";
+        String title = "Feature localization errors:";
         maybeFail(builder, title);
     }
 
     //
 
-    protected static final Set<String> disallowedNoShipFeatures;
-
-    // Features no-teExpected no-ship features.
+    protected static final Set<String> expectedNoShipFeatures;
 
     static {
-        disallowedNoShipFeatures = new HashSet<>(1);
-        disallowedNoShipFeatures.add("io.openliberty.persistentExecutor.internal.ee-10.0");
+        expectedNoShipFeatures = new HashSet<>(1);
+        expectedNoShipFeatures.add("io.openliberty.persistentExecutor.internal.ee-10.0");
     }
 
+    /**
+     * Verify no-ship feature relationships.
+     *
+     * All expected no-ship features must be present.
+     *
+     * Any expected no-ship feature must be marked as no-ship.
+     *
+     * Any feature which is no-ship and which is not an auto feature
+     * must not depend on a no-ship or beta feature.
+     */
     @Test
     public void testNoShipFeatures() {
         StringBuilder builder = new StringBuilder();
 
-        disallowedNoShipFeatures.forEach((String feature) -> {
+        // TODO: Need to review this logic.
+
+        expectedNoShipFeatures.forEach((String feature) -> {
             FeatureInfo featureInfo = getFeature(feature);
             if (featureInfo == null) {
                 appendLine(builder,
-                           "  Missing disallowed no-ship [ ", feature, " ]");
+                           "  Missing expected no-ship [ ", feature, " ]");
 
             } else {
                 if (!featureInfo.isNoShip()) {
@@ -738,7 +863,7 @@ public class FeatureTest {
                                "  Expected no-ship [ ", feature, " ]",
                                " is now [ ", featureInfo.getKind(), " ]");
                     appendLine(builder,
-                               "  Remove this feature from the disallowed no-ship features list.");
+                               "  Remove this feature from the no-ship features list.");
                 }
             }
         });
@@ -767,8 +892,8 @@ public class FeatureTest {
                 // add or remove from the expected failures list in this test, or have something to fix.
 
                 if (!containsNoShip && containsBeta) {
-                    String featureName = featureInfo.getBaseName();
-                    if (!disallowedNoShipFeatures.contains(featureName)) {
+                    String featureName = featureInfo.getName();
+                    if (!expectedNoShipFeatures.contains(featureName)) {
                         appendLine(builder,
                                    "  No-ship auto feature [ ", featureName, " ]",
                                    " has no no-ship dependencies and has beta dependencies");
@@ -777,16 +902,266 @@ public class FeatureTest {
             }
         });
 
-        String title = "Beta/No-Ship feature errors:";
+        String title = "Feature Beta/No-Ship errors:";
         maybeFail(builder, title);
     }
 
+    // TODO: Both 'testNonTransitiveTolerates()' and
+    //       'testFeatureDependenciesRedundancy()' are too complex to
+    //       rewrite at this time.
+    //
+    // TODO: Need to update these and recover the test logic.
+
     /**
-     * Ensure that public and protected features are correctly referenced in a feature
+     * Tests to make sure that public and protected features are correctly referenced in a feature
      * when a dependent feature includes a public or protected feature with a tolerates attribute.
      */
     @Test
     public void testNonTransitiveTolerates() {
+        StringBuilder errorMessage = new StringBuilder();
+        // appSecurity features are special because they have dependencies on each other.
+        Set<String> nonSingletonToleratedFeatures = new HashSet<>();
+        nonSingletonToleratedFeatures.add("com.ibm.websphere.appserver.appSecurity-");
+        Map<String, String> visibilityMap = new HashMap<>();
+        for (Entry<String, FeatureInfo> entry : getFeatures().entrySet()) {
+            FeatureInfo featureInfo = entry.getValue();
+            if (featureInfo.isAutoFeature()) {
+                continue;
+            }
+            String feature = entry.getKey();
+            int lastIndex = feature.indexOf('-');
+            if (lastIndex == -1) {
+                continue;
+            }
+            String baseFeatureName = feature.substring(0, lastIndex + 1);
+            visibilityMap.put(baseFeatureName, featureInfo.getVisibility());
+        }
+
+        for (Entry<String, FeatureInfo> entry : getFeatures().entrySet()) {
+            String featureName = entry.getKey();
+
+            FeatureInfo featureInfo = entry.getValue();
+            Set<String> processedFeatures = new HashSet<>();
+            Map<String, Attrs> depFeatures = featureInfo.getDependentFeatures();
+            Set<String> rootDepFeatureWithoutTolerates = new HashSet<>();
+            for (Map.Entry<String, Attrs> depEntry : depFeatures.entrySet()) {
+                Attrs attrs = depEntry.getValue();
+                if (!attrs.containsKey("ibm.tolerates:")) {
+                    rootDepFeatureWithoutTolerates.add(depEntry.getKey());
+                }
+            }
+
+            Map<String, Set<String>> featureErrors = new HashMap<>();
+            Map<String, Set<String>> toleratedFeatures = new HashMap<>();
+            for (Map.Entry<String, Attrs> depFeature : depFeatures.entrySet()) {
+                String depFeatureName = depFeature.getKey();
+                FeatureInfo depFeatureInfo = getFeature(depFeatureName);
+                if (depFeatureInfo != null) {
+                    for (Map.Entry<String, Attrs> depEntry2 : depFeatureInfo.getDependentFeatures().entrySet()) {
+                        boolean isTolerates = depEntry2.getValue().containsKey("ibm.tolerates:");
+                        if (!isTolerates && processedFeatures.contains(depEntry2.getKey())) {
+                            continue;
+                        }
+                        Map<String, Set<String>> tolFeatures = processIncludedFeature(featureName, rootDepFeatureWithoutTolerates,
+                                                                                      depEntry2.getKey(), featureName + " -> " + depFeatureName, featureErrors, processedFeatures,
+                                                                                      isTolerates,
+                                                                                      depFeature.getValue().containsKey("ibm.tolerates:"), false);
+                        if (tolFeatures != null) {
+                            for (Entry<String, Set<String>> entry2 : tolFeatures.entrySet()) {
+                                String key = entry2.getKey();
+                                Set<String> existing = toleratedFeatures.get(key);
+                                if (existing == null) {
+                                    toleratedFeatures.put(key, entry2.getValue());
+                                } else {
+                                    existing.addAll(entry2.getValue());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (!toleratedFeatures.isEmpty()) {
+                for (String depFeature : depFeatures.keySet()) {
+                    String baseFeatureName = depFeature.substring(0, depFeature.lastIndexOf('-') + 1);
+                    toleratedFeatures.remove(baseFeatureName);
+                }
+                if (!toleratedFeatures.isEmpty()) {
+                    for (Iterator<String> i = toleratedFeatures.keySet().iterator(); i.hasNext();) {
+                        String featureBase = i.next();
+                        if (nonSingletonToleratedFeatures.contains(featureBase) || "private".equals(visibilityMap.get(featureBase))) {
+                            i.remove();
+                        }
+                    }
+                    if (!toleratedFeatures.isEmpty()) {
+                        for (Entry<String, Set<String>> tolEntry : toleratedFeatures.entrySet()) {
+                            errorMessage.append(featureName)
+                                        .append(" must have a dependency on tolerated feature that start with ").append(tolEntry.getKey()).append(" in features ")
+                                        .append(tolEntry.getValue()).append("\n\n");
+                        }
+                    }
+                }
+            }
+        }
+
+        if (errorMessage.length() != 0) {
+            Assert.fail("Found features missing feature dependency due to tolerates not being transitive for public and protected features: " + '\n' + errorMessage.toString());
+        }
+    }
+
+    /**
+     * Finds private and protected dependent features that are redundant because other dependent features already bring them in.
+     * Public features are not included in this test since those features may be explicitly included just to show
+     * which public features are enabled by a feature.
+     */
+    @Test
+    public void testFeatureDependenciesRedundancy() {
+        StringBuilder errorMessage = new StringBuilder();
+        Map<String, String> visibilityMap = new HashMap<>();
+        for (Entry<String, FeatureInfo> entry : getFeatures().entrySet()) {
+            FeatureInfo featureInfo = entry.getValue();
+            if (featureInfo.isAutoFeature()) {
+                continue;
+            }
+            String feature = entry.getKey();
+            int lastIndex = feature.indexOf('-');
+            if (lastIndex == -1) {
+                continue;
+            }
+            String baseFeatureName = feature.substring(0, lastIndex + 1);
+            visibilityMap.put(baseFeatureName, featureInfo.getVisibility());
+
+        }
+        for (Entry<String, FeatureInfo> entry : getFeatures().entrySet()) {
+            String featureName = entry.getKey();
+
+            FeatureInfo featureInfo = entry.getValue();
+            Set<String> processedFeatures = new HashSet<>();
+            Map<String, Attrs> depFeatures = featureInfo.getDependentFeatures();
+            Set<String> rootDepFeatureWithoutTolerates = new HashSet<>();
+            for (Map.Entry<String, Attrs> depEntry : depFeatures.entrySet()) {
+                Attrs attrs = depEntry.getValue();
+                if (!attrs.containsKey("ibm.tolerates:")) {
+                    rootDepFeatureWithoutTolerates.add(depEntry.getKey());
+                }
+            }
+
+            Map<String, Set<String>> featureErrors = new HashMap<>();
+            Set<String> toleratedFeatures = new HashSet<>();
+            for (Map.Entry<String, Attrs> depFeature : depFeatures.entrySet()) {
+                String depFeatureName = depFeature.getKey();
+                FeatureInfo depFeatureInfo = getFeature(depFeatureName);
+                if (depFeatureInfo != null) {
+                    for (Map.Entry<String, Attrs> depEntry2 : depFeatureInfo.getDependentFeatures().entrySet()) {
+                        boolean isApiJarFalse = "false".equals(depFeature.getValue().get("apiJar")) || "false".equals(depEntry2.getValue().get("apiJar"));
+                        Map<String, Set<String>> tolFeatures = processIncludedFeatureAndChildren(featureName, rootDepFeatureWithoutTolerates,
+                                                                                                 depEntry2.getKey(), featureName + " -> " + depFeatureName, featureErrors,
+                                                                                                 processedFeatures,
+                                                                                                 depEntry2.getValue().containsKey("ibm.tolerates:"),
+                                                                                                 depFeature.getValue().containsKey("ibm.tolerates:"), isApiJarFalse);
+                        if (tolFeatures != null) {
+                            toleratedFeatures.addAll(tolFeatures.keySet());
+                        }
+                    }
+                }
+            }
+            for (Map.Entry<String, Set<String>> errorEntry : featureErrors.entrySet()) {
+                String depFeature = errorEntry.getKey();
+                String baseFeatureName = depFeature.substring(0, depFeature.lastIndexOf('-') + 1);
+                if (toleratedFeatures.contains(baseFeatureName) || visibilityMap.get(baseFeatureName).equals("public")) {
+                    continue;
+                }
+                errorMessage.append(featureName).append(" contains redundant feature ").append(depFeature)
+                            .append(" because it is already in an included feature(s):\n");
+                for (String errorPath : errorEntry.getValue()) {
+                    errorMessage.append("    ").append(errorPath).append('\n');
+                }
+                errorMessage.append('\n');
+            }
+        }
+
+        if (errorMessage.length() != 0) {
+            Assert.fail("Found features contains redundant included features: " + '\n' + errorMessage.toString());
+        }
+    }
+
+    private Map<String, Set<String>> processIncludedFeatureAndChildren(String rootFeature, Set<String> rootDepFeatures, String feature,
+                                                                       String parentFeature, Map<String, Set<String>> featureErrors, Set<String> processedFeatures,
+                                                                       boolean isTolerates, boolean hasToleratesAncestor, boolean isApiJarFalse) {
+        Map<String, Set<String>> toleratedFeatures = processIncludedFeature(rootFeature, rootDepFeatures, feature, parentFeature, featureErrors,
+                                                                            processedFeatures, isTolerates, hasToleratesAncestor, isApiJarFalse);
+        FeatureInfo featureInfo = getFeature(feature);
+        if (featureInfo != null) {
+            for (Map.Entry<String, Attrs> depEntry : featureInfo.getDependentFeatures().entrySet()) {
+                boolean depApiJarFalse = "false".equals(depEntry.getValue().get("apiJar"));
+                Map<String, Set<String>> includeTolerates = processIncludedFeatureAndChildren(rootFeature, rootDepFeatures, depEntry.getKey(),
+                                                                                              parentFeature + " -> " + feature, featureErrors, processedFeatures,
+                                                                                              depEntry.getValue().containsKey("ibm.tolerates:"),
+                                                                                              isTolerates || hasToleratesAncestor, isApiJarFalse || depApiJarFalse);
+                if (includeTolerates != null) {
+                    if (toleratedFeatures == null) {
+                        toleratedFeatures = new HashMap<>(includeTolerates);
+                    } else {
+                        for (Entry<String, Set<String>> entry : includeTolerates.entrySet()) {
+                            String key = entry.getKey();
+                            Set<String> existing = toleratedFeatures.get(key);
+                            if (existing == null) {
+                                toleratedFeatures.put(key, entry.getValue());
+                            } else {
+                                existing.addAll(entry.getValue());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return toleratedFeatures;
+    }
+
+    private Map<String, Set<String>> processIncludedFeature(@SuppressWarnings("unused") String rootFeature,
+                                                            Set<String> rootDepFeatures,
+                                                            String feature,
+                                                            String parentFeature,
+                                                            Map<String, Set<String>> featureErrors,
+                                                            Set<String> processedFeatures,
+                                                            boolean isTolerates,
+                                                            boolean hasToleratesAncestor, boolean isApiJarFalse) {
+
+        Map<String, Set<String>> toleratedFeatures = null;
+        if (isTolerates) {
+            toleratedFeatures = new HashMap<>();
+            HashSet<String> depFeatureWithTolerate = new HashSet<>();
+            depFeatureWithTolerate.add(parentFeature);
+            toleratedFeatures.put(feature.substring(0, feature.lastIndexOf('-') + 1), depFeatureWithTolerate);
+            processedFeatures.add(feature);
+        } else if (!hasToleratesAncestor && rootDepFeatures.contains(feature) &&
+                   !feature.startsWith("com.ibm.websphere.appserver.eeCompatible-") &&
+                   !feature.startsWith("io.openliberty.mpCompatible-") &&
+                   !feature.startsWith("io.openliberty.servlet.internal-")) {
+            if (!isApiJarFalse) {
+                Set<String> errors = featureErrors.get(feature);
+                if (errors == null) {
+                    errors = new HashSet<String>();
+                    featureErrors.put(feature, errors);
+                }
+                errors.add(parentFeature);
+            }
+        } else {
+            processedFeatures.add(feature);
+        }
+        return toleratedFeatures;
+    }
+
+    //
+
+    /**
+     * TODO: Document this test.
+     *
+     * Ensure that public and protected features are correctly referenced in a feature
+     * when a dependent feature includes a public or protected feature with a tolerates attribute.
+     */
+    // @Test
+    public void testNonTransitiveToleratesX() {
         StringBuilder builder = new StringBuilder();
 
         Map<String, String> baseVisibilities = getBaseVisibilities();
@@ -882,25 +1257,27 @@ public class FeatureTest {
 
             toleratedFeatures.forEach((String baseName, Set<String> features) -> {
                 appendLine(builder,
-                           "Feature [ ", root, " ]",
+                           "  Feature [ ", root, " ]",
                            "must have a tolerated dependency [ ", baseName, " ] ",
                            "within [ ", features.toString(), " ]");
             });
         });
 
-        String title = "Non-transive feature tolerates errors:";
+        String title = "Feature non-transitive tolerates errors:";
         maybeFail(builder, title);
     }
 
     /**
+     * TODO: Document this test.
+     *
      * Finds private and protected dependent features that
      * are redundant because other dependent features already bring them in.
      *
      * Public features are not included in this test since those may be
      * explicitly included just to show which public features are enabled by a feature.
      */
-    @Test
-    public void testFeatureDependenciesRedundancy() {
+    // @Test
+    public void testFeatureDependenciesRedundancyX() {
         StringBuilder builder = new StringBuilder();
 
         Map<String, String> baseVisibilities = getBaseVisibilities();
@@ -975,9 +1352,9 @@ public class FeatureTest {
                     return;
                 }
 
-                appendLine(builder, "Feature [ ", depFeature, " ] has redundant features:");
+                appendLine(builder, "  Feature [ ", depFeature, " ] has redundant features:");
                 for (String errorPath : errorPaths) {
-                    appendLine(builder, "  [ ", errorPath, " ]");
+                    appendLine(builder, "    [ ", errorPath, " ]");
                 }
             });
         });
@@ -1088,7 +1465,6 @@ public class FeatureTest {
         if (builder.length() != 0) {
             builder.insert(0, title);
             // The character of the builder is required to be a new line.
-
             Assert.fail(builder.toString());
         }
     }
