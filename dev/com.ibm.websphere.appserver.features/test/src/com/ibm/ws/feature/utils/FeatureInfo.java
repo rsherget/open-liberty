@@ -15,8 +15,11 @@ package com.ibm.ws.feature.utils;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
@@ -200,11 +203,21 @@ public class FeatureInfo {
             this.activatingAutoFeature = new LinkedHashSet<String>();
 
             Set<Map.Entry<String, Attrs>> useFeatures = builder.getFeatures();
-            Map<String, Attrs> useDependentFeatures = new LinkedHashMap<>(useFeatures.size());
+
+            List<String> useDepNames = new ArrayList<>(useFeatures.size());
+            Map<String, Attrs> useDeps = new LinkedHashMap<>(useFeatures.size());
+
             useFeatures.forEach((Map.Entry<String, Attrs> entry) -> {
-                useDependentFeatures.put(entry.getKey(), entry.getValue());
+                String depName = entry.getKey();
+                useDepNames.add(depName);
+                useDeps.put(depName, entry.getValue());
+
             });
-            this.dependentFeatures = useDependentFeatures;
+
+            useDepNames.sort(Comparator.comparing(String::toString));
+
+            this.sortedDependentNames = useDepNames;
+            this.dependentFeatures = useDeps;
 
             //
 
@@ -398,7 +411,18 @@ public class FeatureInfo {
 
     //
 
+    private final List<String> sortedDependentNames;
     private final Map<String, Attrs> dependentFeatures;
+
+    public List<String> getSortedDependentNames() {
+        return sortedDependentNames;
+    }
+
+    public void forEachSortedDepName(Consumer<? super String> consumer) {
+        getSortedDependentNames().forEach(consumer);
+    }
+
+    //
 
     public Map<String, Attrs> getDependentFeatures() {
         return dependentFeatures;
