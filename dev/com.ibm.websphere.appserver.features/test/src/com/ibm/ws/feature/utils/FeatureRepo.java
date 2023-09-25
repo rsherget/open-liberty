@@ -91,6 +91,7 @@ public class FeatureRepo {
 
         this.visibilityPartitions = this.computeVisibilityPartitions();
         this.baseVisibilities = this.computeBaseVisibilities();
+        this.cohorts = this.computeCohorts();
     }
 
     //
@@ -249,6 +250,88 @@ public class FeatureRepo {
             merged.addAll(s1);
             merged.addAll(s2);
             return merged;
+        }
+    }
+
+    //
+
+    private final Map<String, List<String>> cohorts;
+
+    public Map<String, List<String>> getCohorts() {
+        return cohorts;
+    }
+
+    public Map<String, List<String>> computeCohorts() {
+        Map<String, List<String>> useCohorts = new LinkedHashMap<>();
+
+        forEach((FeatureInfo featureInfo) -> {
+            if (!featureInfo.isPublic()) {
+                return;
+            }
+
+            String version = featureInfo.getVersion();
+            if (version == null) {
+                return;
+            }
+
+            String baseName = featureInfo.getBaseName();
+            List<String> cohort = useCohorts.computeIfAbsent(baseName,
+                                                             (String useBaseName) -> new ArrayList<>());
+            cohort.add(version);
+        });
+
+        useCohorts.forEach((String baseName, List<String> useVersions) -> {
+            useVersions.sort(FeatureRepo::compareVersions);
+        });
+
+        return useCohorts;
+    }
+
+    private static Map<String, int[]> versions = new HashMap<>();
+
+    public static int[] parse(String version) {
+        return versions.computeIfAbsent(version, (String useVersion) -> {
+            int vOffset = useVersion.indexOf('.');
+            if (vOffset == -1) {
+                return new int[] { Integer.parseInt(useVersion) };
+            } else {
+                return new int[] { Integer.parseInt(useVersion.substring(0, vOffset)),
+                                   Integer.parseInt(useVersion.substring(vOffset + 1, useVersion.length())) };
+            }
+        });
+    }
+
+    public static int compareVersions(String v0, String v1) {
+        int[] fields0 = parse(v0);
+        int len0 = fields0.length;
+
+        int[] fields1 = parse(v1);
+        int len1 = fields1.length;
+
+        int fNo = 0;
+        while ((fNo < len0) && (fNo < len1)) {
+            int f0 = fields0[fNo];
+            int f1 = fields1[fNo];
+            if (f0 < f1) {
+                return -1; // 8.x < 9.x
+            } else if (f0 > f1) {
+                return +1; // 9.x > 8.x
+            } else {
+                fNo++;
+                // loop    // 8.x ? 8.y
+            }
+        }
+
+        if (fNo == len0) {
+            if (fNo == len1) {
+                return 0; // 10.x == 10.x
+            } else {
+                return -1; // 10 < 10.x
+            }
+        } else if (fNo == len1) {
+            return +1; // 8.x > 8
+        } else {
+            throw new IllegalStateException("Strange comparison of [ " + v0 + " ] with [ " + v0 + " ]");
         }
     }
 }
