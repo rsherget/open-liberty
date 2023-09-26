@@ -14,11 +14,17 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
+import java.io.IOException;
 
 import org.junit.Test;
 
 import com.ibm.ws.feature.utils.FeatureInfo;
 import com.ibm.ws.feature.utils.FeatureRepo;
+import com.ibm.ws.feature.utils.VersionlessFeatureDefinition;
+import com.ibm.ws.feature.utils.VersionlessFeatureCreator;
+
+
 
 public class VersionlessTest {
 
@@ -60,6 +66,7 @@ public class VersionlessTest {
     @Test
     public void listSelectorDetails() {
         Map<String, List<String>> cohorts = getRepository().getCohorts();
+        Map<String, VersionlessFeatureDefinition> versionlessFeatures = new HashMap<String, VersionlessFeatureDefinition>();
 
         System.out.println("Selectors:");
         getSelectorCohorts().forEach((String baseName, List<String> featureBaseNames) -> {
@@ -84,6 +91,14 @@ public class VersionlessTest {
                             System.out.println("        [ " + depName + " ** NOT FOUND ** ]");
                         } else if (depInfo.isPublic()) {
                             System.out.println("        [ " + depInfo.getBaseName() + " - " + depInfo.getVersion() + " ]");
+                            
+                            String featureTitle = depInfo.getShortName().split("-")[0]; //Just the name not the version
+                            if(versionlessFeatures.containsKey(featureTitle)){
+                                versionlessFeatures.get(featureTitle).addFeaturePlatform(new String[] { depInfo.getShortName(), baseName + "-" + version, depInfo.getName()});
+                            }
+                            else {
+                                versionlessFeatures.put(featureTitle, new VersionlessFeatureDefinition(featureTitle, featureTitle, new String[] { depInfo.getShortName(), baseName + "-" + version, depInfo.getName()}));
+                            }
                         } else {
                             // Ignore
                         }
@@ -91,6 +106,20 @@ public class VersionlessTest {
                 }
             }
         });
+
+        VersionlessFeatureCreator creator = new VersionlessFeatureCreator();
+
+        for(String title : versionlessFeatures.keySet()) {
+            VersionlessFeatureDefinition feat = versionlessFeatures.get(title);
+			try {
+				creator.createPublicVersionlessFeature(feat);
+				creator.createPrivateFeatures(feat);
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+
     }
 
     private static final Map<String, List<String>> selectorCohorts;

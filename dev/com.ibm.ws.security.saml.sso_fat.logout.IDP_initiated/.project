@@ -4,8 +4,8 @@
 	<comment></comment>
 	<projects>
 		<project>com.ibm.ws.security_fat.common</project>
-                <project>com.ibm.ws.security.saml.sso_fat.common</project>
-                <project>com.ibm.ws.security.saml.sso_fat.logout</project>
+		<project>com.ibm.ws.security.saml.sso_fat.common</project>
+		<project>com.ibm.ws.security.saml.sso_fat.logout</project>
 	</projects>
 	<buildSpec>
 		<buildCommand>
@@ -23,4 +23,15 @@
 		<nature>org.eclipse.jdt.core.javanature</nature>
 		<nature>bndtools.core.bndnature</nature>
 	</natures>
+	<filteredResources>
+		<filter>
+			<id>1695741267543</id>
+			<name></name>
+			<type>30</type>
+			<matcher>
+				<id>org.eclipse.core.resources.regexFilterMatcher</id>
+				<arguments>node_modules|\.git|__CREATED_BY_JAVA_LANGUAGE_SERVER__</arguments>
+			</matcher>
+		</filter>
+	</filteredResources>
 </projectDescription>
