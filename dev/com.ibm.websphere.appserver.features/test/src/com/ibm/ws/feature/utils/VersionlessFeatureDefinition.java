@@ -1,6 +1,7 @@
 package com.ibm.ws.feature.utils;
 
 import java.util.ArrayList;
+import java.util.Collections;
 
 public class VersionlessFeatureDefinition {
 	
@@ -64,16 +65,22 @@ public class VersionlessFeatureDefinition {
      * @return
      */
     public String getAllVersions() {
-    	String versions = "";
-    	
+    	ArrayList<String> versions = new ArrayList<String>();
+        String output = "";
+
     	for(String[] featAndPlat : featuresAndPlatform) {
-    		versions += featAndPlat[0].split("-")[1];
-    		versions += ",";
+            if(!versions.contains(featAndPlat[0].split("-")[1])){
+                versions.add(featAndPlat[0].split("-")[1]);
+            }
     	}
+        Collections.sort(versions);
+        for(String version : versions){
+            output += version + ",";
+        }
     	
-    	versions = versions.substring(0, versions.length()-1);
+    	output = output.substring(0, output.length()-1);
     	
-    	return versions;
+    	return output;
     }
     
 }
