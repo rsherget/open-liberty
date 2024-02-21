@@ -79,7 +79,7 @@ public class FeatureResolverImpl implements FeatureResolver {
 
     private static boolean shownVersionlessError = false;
 
-    private static final String preferedFeatureVersions = System.getenv("PREFERRED_FEATURE_VERSIONS");
+    private static String preferedFeatureVersions = System.getenv("PREFERRED_FEATURE_VERSIONS");
 
     private static String[][] parsedPreferedVersions;
 
@@ -102,6 +102,17 @@ public class FeatureResolverImpl implements FeatureResolver {
             parsedVersions[i] = parseNameAndVersion(preferredVersions[i].trim());
         }
         parsedPreferedVersions = parsedVersions;
+    }
+
+    public void setPrefferedVersion(String preferredFeatures){
+        preferedFeatureVersions = preferredFeatures;
+        String[] preferredVersions = (preferedFeatureVersions == null) ? new String[] {} : preferedFeatureVersions.split(",");
+        String[][] parsedVersions = new String[preferredVersions.length][2];
+        for (int i = 0; i < preferredVersions.length; i++) {
+            parsedVersions[i] = parseNameAndVersion(preferredVersions[i].trim());
+        }
+        parsedPreferedVersions = parsedVersions;
+
     }
 
     @Override
