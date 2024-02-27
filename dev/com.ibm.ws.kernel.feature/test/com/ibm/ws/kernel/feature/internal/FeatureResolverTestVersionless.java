@@ -54,8 +54,8 @@ import test.utils.VersionlessTestCase;
 @RunWith(Parameterized.class)
 public class FeatureResolverTestVersionless {
     static final String testBuildDir = System.getProperty("test.buildDir", "generated");
-    //public static final String RESOLVER_DATA_DIR = testBuildDir + "/test/resolverData";
-    public static final String RESOLVER_DATA_DIR = "../build.image";
+    public static final String RESOLVER_DATA_DIR = testBuildDir + "/test/resolverData";
+    //public static final String RESOLVER_DATA_DIR = "../build.image";
     static final File RESOLVER_DATA_FILE = new File(RESOLVER_DATA_DIR);
     static final String serverName = "FeatureResolverTest";
     static final AtomicBoolean returnAutoFeatures = new AtomicBoolean(false);
@@ -66,9 +66,55 @@ public class FeatureResolverTestVersionless {
 
     private VersionlessTestCase testCase;
 
+    private static void combinations(List<String> words, int r){
+        ArrayList<ArrayList<String>> result = new ArrayList<>();
+        String binaryS = "";
+        for (int i = 0; i < words.size(); i++){
+            binaryS += "0";
+        }
+        for (int i = 0; i < Math.pow(2, words.size()); i++){
+            String bin = Integer.toBinaryString(i);
+            long count = bin.chars().filter(ch -> ch == '1').count();
+            if(count == r){
+                ArrayList<String> temp = new ArrayList<>();
+                bin = binaryS.substring(bin.length()).concat(bin);
+                for (int j = 0; j < words.size(); j++){
+                    if(bin.charAt(bin.length()-j-1) == '1'){
+                        temp.add(words.get(j));
+                    }
+                }
+                result.add(temp);
+            }
+        }
+
+        System.out.println(result.toString());
+    }
+
     @Parameterized.Parameters
     public static Collection<Object[]> data() {
         List<VersionlessTestCase> testCases = new ArrayList<VersionlessTestCase>();
+
+        /**
+        def combinations(iterable, r):
+            # combinations('ABCD', 2) --> AB AC AD BC BD CD
+            # combinations(range(4), 3) --> 012 013 023 123 
+            pool = tuple(iterable)
+            n = len(pool)
+            if r > n:
+                return
+            indices = list(range(r))
+            yield tuple(pool[i] for i in indices)
+            while True:
+                for i in reversed(range(r)):
+                    if indices[i] != i + n - r:
+                        break
+                    else:
+                        return
+                    indices[i] += 1
+                    for j in range(i+1, r):
+                        indices[j] = indices[j-1] + 1
+                    yield tuple(pool[i] for i in indices)
+         */
         
         // loop through data set of versionless feature server configurations and resolved outputs
         // add to our versionless test case array to iteratively test every test case
@@ -85,8 +131,20 @@ public class FeatureResolverTestVersionless {
         // user str.split("\\s*,\\s*") to separate string of all features to list
         // ex Arrays.asList("String, of, features".split("\\s*,\\s*"))
 
-        testCases.add(new VersionlessTestCase(Arrays.asList("servlet-5.0, mpHealth, mpMetrics".split("\\s*,\\s*")), Arrays.asList("cdi-3.0, distributedMap-1.0, jndi-1.0, json-1.0, monitor-1.0, mpConfig-3.0, mpHealth, mpHealth-4.0, mpMetrics, mpMetrics-4.0, servlet-5.0, ssl-1.0".split("\\s*,\\s*"))));
-        testCases.add(new VersionlessTestCase(Arrays.asList("servlet-6.0, mpHealth, mpMetrics".split("\\s*,\\s*")), Arrays.asList("cdi-4.0, distributedMap-1.0, jndi-1.0, json-1.0, monitor-1.0, mpConfig-3.0, mpHealth, mpHealth-4.0, mpMetrics, mpMetrics-5.1, servlet-6.0, ssl-1.0".split("\\s*,\\s*"))));
+        testCases.add(new VersionlessTestCase(
+            Arrays.asList(
+                "servlet-5.0, mpHealth, mpMetrics".split("\\s*,\\s*")
+            ), 
+            Arrays.asList(
+                "cdi-3.0, distributedMap-1.0, jndi-1.0, json-1.0, monitor-1.0, mpConfig-3.0, mpHealth, mpHealth-4.0, mpMetrics, mpMetrics-4.0, servlet-5.0, ssl-1.0".split("\\s*,\\s*")
+            )));
+        testCases.add(new VersionlessTestCase(
+            Arrays.asList(
+                "servlet-6.0, mpHealth, mpMetrics".split("\\s*,\\s*")
+            ), 
+            Arrays.asList(
+                "cdi-4.0, distributedMap-1.0, jndi-1.0, json-1.0, monitor-1.0, mpConfig-3.0, mpHealth, mpHealth-4.0, mpMetrics, mpMetrics-5.1, servlet-6.0, ssl-1.0".split("\\s*,\\s*")
+            )));
 
         System.out.println("TestCases: " + testCases.toString());
         System.out.println("As List: " + Arrays.asList(testCases));
@@ -94,6 +152,9 @@ public class FeatureResolverTestVersionless {
         for(int i = 0; i < testCases.size(); i++){
             output.add(new Object[] {testCases.get(i)});
         }
+        combinations(Arrays.asList(
+            "a, b, c, d".split("\\s*,\\s*")
+        ), 3);
         System.out.println(output);
         return output;
     }
