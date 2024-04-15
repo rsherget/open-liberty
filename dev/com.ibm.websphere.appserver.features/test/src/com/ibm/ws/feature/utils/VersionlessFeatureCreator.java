@@ -59,41 +59,43 @@ public class VersionlessFeatureCreator {
             //         continue;
             //     }
             // }
-            if(feature.getAlsoKnownAs() != null){
-                System.out.println("AKA PAST FEATURE -------------" + feature.getFeatureName() + "------------");
-            }
+            // if(feature.getAlsoKnownAs() != null){
+            //     System.out.println("AKA PAST FEATURE -------------" + feature.getFeatureName() + "------------");
+            // }
             createPrivateVersionedFeature(feature.getFeatureName(), features[0].split("-")[1], features[2], feature.getAlsoKnownAs());
         }
     }
     
     private void createPrivateVersionedFeature(String featureName, String featureNum, String fullName, String aka) throws IOException {
     	File f = new File(privatePath + "io.openliberty.internal.versionless." + featureName + "-" + featureNum + ".feature");
-    	if(!f.exists()) {
-    		f.createNewFile();
-            BufferedWriter writer = new BufferedWriter(new FileWriter(f));
-            writer.append("-include= ~${workspace}/cnf/resources/bnd/feature.props");
-            writer.newLine();
-            writer.append("symbolicName=io.openliberty.internal.versionless." + featureName + "-" + featureNum);
-            writer.newLine();
-            // if(aka != null){
-            //     writer.append("WLP-AlsoKnownAs: io.openliberty.internal.versionless." + aka + "-" + featureNum);
-            //     writer.newLine();
-            // }
-            writer.append("visibility=private");
-            writer.newLine();
-            writer.append("singleton=true");
-            writer.newLine();
-            writer.append("-features= \\");
-            writer.newLine();
-            writer.append("    " + fullName);
-            writer.newLine();
-            writer.append("kind=noship");
-            writer.newLine();
-            writer.append("edition=full");
-            writer.newLine();
-            
-            writer.close();
-    	}
+        if(f.exists()){
+            f.delete();
+        }
+        f.createNewFile();
+        BufferedWriter writer = new BufferedWriter(new FileWriter(f));
+        writer.append("-include= ~${workspace}/cnf/resources/bnd/feature.props");
+        writer.newLine();
+        writer.append("symbolicName=io.openliberty.internal.versionless." + featureName + "-" + featureNum);
+        writer.newLine();
+        // if(aka != null){
+        //     writer.append("WLP-AlsoKnownAs: io.openliberty.internal.versionless." + aka + "-" + featureNum);
+        //     writer.newLine();
+        // }
+        writer.append("visibility=private");
+        writer.newLine();
+        writer.append("singleton=true");
+        writer.newLine();
+        writer.append("-features= \\");
+        writer.newLine();
+        writer.append("    " + fullName);
+        writer.newLine();
+        writer.append("kind=beta");
+        writer.newLine();
+        writer.append("edition=core");
+        writer.newLine();
+        
+        writer.close();
+    	
     }
     
     private void createPublicVersionlessFeature(VersionlessFeatureDefinition feature) throws IOException {
@@ -125,9 +127,9 @@ public class VersionlessFeatureCreator {
             writer.append("-features=io.openliberty.internal.versionless." + feature.getFeatureName() + "-" + versions[0] + "; ibm.tolerates:=\"" + versions[1] + "\"");
         }
         writer.newLine();
-        writer.append("kind=noship");
+        writer.append("kind=beta");
         writer.newLine();
-        writer.append("edition=full");
+        writer.append("edition=core");
         writer.newLine();
         
         writer.close();
@@ -135,45 +137,46 @@ public class VersionlessFeatureCreator {
     
     private void createPublicFeaturePropertiesFile(VersionlessFeatureDefinition feature) throws IOException {
     	File dir = new File(publicPath + feature.getFeatureName() + "/resources/l10n");
-        if(!dir.exists()){
-            dir.mkdirs();
-            File f = new File(publicPath + feature.getFeatureName() + "/resources/l10n/io.openliberty." + feature.getFeatureName() + ".properties");
-            f.createNewFile();
-            BufferedWriter writer = new BufferedWriter(new FileWriter(f));
-            writer.append("###############################################################################");
-            writer.newLine();
-            writer.append("# Copyright (c) 2023 IBM Corporation and others.");
-            writer.newLine();
-            writer.append("# All rights reserved. This program and the accompanying materials");
-            writer.newLine();
-            writer.append("# are made available under the terms of the Eclipse Public License 2.0");
-            writer.newLine();
-            writer.append("# which accompanies this distribution, and is available at");
-            writer.newLine();
-            writer.append("# http://www.eclipse.org/legal/epl-2.0/");
-            writer.newLine();
-            writer.append("# ");
-            writer.newLine();
-            writer.append("# SPDX-License-Identifier: EPL-2.0");
-            writer.newLine();
-            writer.append("###############################################################################");
-            writer.newLine();
-            writer.append("#");
-            writer.newLine();
-            writer.append("#ISMESSAGEFILE FALSE");
-            writer.newLine();
-            writer.append("#NLS_ENCODING=UNICODE");
-            writer.newLine();
-            writer.append("#NLS_MESSAGEFORMAT_NONE");
-            writer.newLine();
-            writer.append("#");
-            writer.newLine();
-            writer.newLine();
-            writer.append("description=This feature enables support for versionless " + feature.getFeatureName());
-
-            writer.newLine();
-            
-            writer.close();
+        dir.mkdirs();
+        File f = new File(publicPath + feature.getFeatureName() + "/resources/l10n/io.openliberty.versionless." + feature.getFeatureName() + ".properties");
+        if(f.exists()){
+            f.delete();
         }
+        f.createNewFile();
+        BufferedWriter writer = new BufferedWriter(new FileWriter(f));
+        writer.append("###############################################################################");
+        writer.newLine();
+        writer.append("# Copyright (c) 2024 IBM Corporation and others.");
+        writer.newLine();
+        writer.append("# All rights reserved. This program and the accompanying materials");
+        writer.newLine();
+        writer.append("# are made available under the terms of the Eclipse Public License 2.0");
+        writer.newLine();
+        writer.append("# which accompanies this distribution, and is available at");
+        writer.newLine();
+        writer.append("# http://www.eclipse.org/legal/epl-2.0/");
+        writer.newLine();
+        writer.append("# ");
+        writer.newLine();
+        writer.append("# SPDX-License-Identifier: EPL-2.0");
+        writer.newLine();
+        writer.append("###############################################################################");
+        writer.newLine();
+        writer.append("#");
+        writer.newLine();
+        writer.append("#ISMESSAGEFILE FALSE");
+        writer.newLine();
+        writer.append("#NLS_ENCODING=UNICODE");
+        writer.newLine();
+        writer.append("#NLS_MESSAGEFORMAT_NONE");
+        writer.newLine();
+        writer.append("#");
+        writer.newLine();
+        writer.newLine();
+        writer.append("description=This feature enables support for versionless " + feature.getFeatureName());
+
+        writer.newLine();
+        
+        writer.close();
 	}
 }

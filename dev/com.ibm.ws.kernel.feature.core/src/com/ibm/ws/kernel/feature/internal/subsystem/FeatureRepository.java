@@ -791,6 +791,10 @@ public final class FeatureRepository implements FeatureResolver.Repository {
         return result;
     }
 
+    public Map<String, SubsystemFeatureDefinitionImpl> getAllFeatures(){
+        return cachedFeatures;
+    }
+
     private static final String TOLERATE_PREFIX = "tolerates.";
 
     @Override
