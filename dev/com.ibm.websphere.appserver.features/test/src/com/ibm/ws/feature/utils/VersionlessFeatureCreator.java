@@ -119,7 +119,7 @@ public class VersionlessFeatureCreator {
         
         return true;
     }
-ajsldfjalsdjf;lkajsdl;fjal;sdf
+ajsldfjalsdjf;lkajsdl;fjal
     private boolean createPublicVersionlessFeature(VersionlessFeatureDefinition feature) throws IOException {
         File checkExisting = new File(checkExistingPublic + feature.getFeatureName() + "/io.openliberty.versionless." + feature.getFeatureName() + ".feature");
         //Even if we already have an existing public versionless feature, 
