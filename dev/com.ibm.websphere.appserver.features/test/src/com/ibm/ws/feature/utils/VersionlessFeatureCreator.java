@@ -68,7 +68,7 @@ public class VersionlessFeatureCreator {
                 }
 
                 if (createPrivateVersionedFeature(feature.getFeatureName(), akaFeature == null ? null : akaFeature.getFeatureName(), features[0].split("-")[1], x, y,
-                                                  features[2])) {
+                                                  features[2], feature.getEdition())) {
                     generatedNewFile = true;
                 }
             }
@@ -82,7 +82,7 @@ public class VersionlessFeatureCreator {
         return generatedNewFile;
     }
 
-    private boolean createPrivateVersionedFeature(String featureName, String akaFeatureName, String featureNum, String x, String y, String fullName) throws IOException {
+    private boolean createPrivateVersionedFeature(String featureName, String akaFeatureName, String featureNum, String x, String y, String fullName, String edition) throws IOException {
         File checkExisting = new File(checkExistingPrivate + "io.openliberty.internal.versionless." + featureName + "-" + featureNum + ".feature");
         if (checkExisting.exists()) {
             return false;
@@ -113,9 +113,9 @@ public class VersionlessFeatureCreator {
         }
         writer.append("    " + fullName);
         writer.newLine();
-        writer.append("kind=noship");
+        writer.append("kind=beta");
         writer.newLine();
-        writer.append("edition=full");
+        writer.append("edition=" + edition);
         writer.newLine();
 
         writer.close();
@@ -168,9 +168,9 @@ public class VersionlessFeatureCreator {
             writer.append("-features=io.openliberty.internal.versionless." + toleratesFeature + "-" + versions[0] + "; ibm.tolerates:=\"" + versions[1] + "\"");
         }
         writer.newLine();
-        writer.append("kind=noship");
+        writer.append("kind=beta");
         writer.newLine();
-        writer.append("edition=full");
+        writer.append("edition=" + feature.getEdition());
         writer.newLine();
 
         writer.close();

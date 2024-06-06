@@ -12,18 +12,21 @@ public class VersionlessFeatureDefinition {
 	private ArrayList<String[]> featuresAndPlatform;
     private String alsoKnownAs;
     private String akaFutureFeature;
+    private String edition;
 
-	public VersionlessFeatureDefinition(String featureName, String subsystemName, ArrayList<String[]> featuresAndPlatform) {
+	public VersionlessFeatureDefinition(String featureName, String subsystemName, ArrayList<String[]> featuresAndPlatform, String edition) {
 		this.featureName = featureName;
 		this.subsystemName = subsystemName;
 		this.featuresAndPlatform = featuresAndPlatform;
+        this.edition = edition;
 	}
 
-	public VersionlessFeatureDefinition(String featureName, String subsystemName, String[] featureAndPlatform) {
+	public VersionlessFeatureDefinition(String featureName, String subsystemName, String[] featureAndPlatform, String edition) {
 		this.featureName = featureName;
 		this.subsystemName = subsystemName;
 		this.featuresAndPlatform = new ArrayList<String[]>();
         featuresAndPlatform.add(featureAndPlatform);
+        this.edition = edition;
 	}
 
     /**
@@ -46,6 +49,10 @@ public class VersionlessFeatureDefinition {
 
     public String getAlsoKnownAs(){
         return alsoKnownAs;
+    }
+
+    public String getEdition(){
+        return edition;
     }
 
     public void setAlsoKnownAs(String alsoKnownAs){
