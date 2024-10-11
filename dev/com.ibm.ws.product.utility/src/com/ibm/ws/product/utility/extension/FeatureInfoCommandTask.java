@@ -63,7 +63,7 @@ public class FeatureInfoCommandTask extends BaseCommandTask {
 
         for (Map.Entry<String, Map<String, ProvisioningFeatureDefinition>> prodFeatureEntries : processor.getFeatureDefinitionsByProduct().entrySet()) {
             String productName = prodFeatureEntries.getKey();
-            ArrayList<String> prodFeatures = new ArrayList<String>();
+            ArrayList<String> featureList = new ArrayList<String>();
 
             for (Map.Entry<String, ProvisioningFeatureDefinition> entry : prodFeatureEntries.getValue().entrySet()) {
                 // entry.getKey() this is the longer Subsystem-SymbolicName
@@ -75,24 +75,26 @@ public class FeatureInfoCommandTask extends BaseCommandTask {
 
                     //collect all features to be sorted
                     if (productName.equals(ManifestFileProcessor.CORE_PRODUCT_NAME)) {
-                        prodFeatures.add(featureName);
+                        featureList.add(featureName);
                     }
                     else{
                         int colonIndex = featureName.indexOf(":");
-                        prodFeatures.add(featureName.substring(colonIndex + 1));
+                        featureList.add(featureName.substring(colonIndex + 1));
                     }
                 }
             }
 
             //sort and print features
-            if(prodFeatures.size() > 0){
-                Collections.sort(prodFeatures);
+            if(featureList.size() > 0){
+                Collections.sort(featureList);
 
-                commandConsole.printlnInfoMessage("");
-                commandConsole.printInfoMessage("Product Extension: ");
-                commandConsole.printlnInfoMessage(productName);
+                if(!productName.equals(ManifestFileProcessor.CORE_PRODUCT_NAME)){
+                    commandConsole.printlnInfoMessage("");
+                    commandConsole.printInfoMessage("Product Extension: ");
+                    commandConsole.printlnInfoMessage(productName);
+                }
     
-                for(String featureName : prodFeatures){
+                for(String featureName : featureList){
                     commandConsole.printlnInfoMessage(featureName);
                 }
             }
