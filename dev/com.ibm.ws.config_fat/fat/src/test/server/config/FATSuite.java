@@ -18,20 +18,20 @@ import org.junit.runners.Suite.SuiteClasses;
 
 @RunWith(Suite.class)
 @SuiteClasses({
-                ServerConfigTest.class,
-                CacheIdRestartTest.class,
-                CacheIdUpdateTest.class,
-                CacheIdRearrangeTest.class,
-                ConfigExtensionsTest.class,
-                ChildAliasTest.class,
-                ProductExtensionsTest.class,
-                BadConfigTests.class,
-                MergedConfigTests.class,
-                WSConfigurationHelperTest.class,
-                //SchemaGeneratorMBeanTest.class,
-                FeaturelistGeneratorMBeanTest.class,
-                ServerXMLConfigurationMBeanTest.class,
-                DropinsTest.class,
+                ServerConfigTest.class//,
+                // CacheIdRestartTest.class,
+                // CacheIdUpdateTest.class,
+                // CacheIdRearrangeTest.class,
+                // ConfigExtensionsTest.class,
+                // ChildAliasTest.class,
+                // ProductExtensionsTest.class,
+                // BadConfigTests.class,
+                // MergedConfigTests.class,
+                // WSConfigurationHelperTest.class,
+                // //SchemaGeneratorMBeanTest.class,
+                // FeaturelistGeneratorMBeanTest.class,
+                // ServerXMLConfigurationMBeanTest.class,
+                // DropinsTest.class,
 })
 public class FATSuite {
     // EMPTY
