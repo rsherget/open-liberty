@@ -13,12 +13,13 @@
 
 package com.ibm.ws.config.xml.internal;
 
+import java.io.File;
+import java.io.FileFilter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Iterator;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -401,15 +402,13 @@ public class XMLConfigParser {
 
                 } else if (includeResource.exists() &&
                            ((includeResource.isType(WsResource.Type.DIRECTORY)))) {
-                    Iterator<String> children = includeResource.getChildren();
-                    ArrayList<String> alphabeticalChildren = new ArrayList<String>();
-                    while (children.hasNext()) {
-                        alphabeticalChildren.add(children.next());
-                    }
-                    // Match sort used for configDropins. Reference ServerXMLConfiguration.java:parseDirectoryFiles()
-                    Collections.sort(alphabeticalChildren, String.CASE_INSENSITIVE_ORDER);
-                    for(String child : alphabeticalChildren){
-                        parseIncludeDir(parser, docLocation, child, includes, configuration);
+
+                    File[] children = getChildXMLFiles(includeResource);
+                    if (children != null) {
+                        Arrays.sort(children, new AlphaComparator());
+                        for (File child : children) {
+                            parseIncludeDir(parser, docLocation, child.getName(), includes, configuration);
+                        }
                     }
 
                 } else {
@@ -692,8 +691,8 @@ public class XMLConfigParser {
         }
 
         String resolvedIncludePath = resolvePath(includePath);
-        
-        if(resolvedIncludePath == null || resolvedIncludePath.trim().length() == 0){
+
+        if (resolvedIncludePath == null || resolvedIncludePath.trim().length() == 0) {
             return null;
         }
 
@@ -758,6 +757,43 @@ public class XMLConfigParser {
         }
 
         return PathUtils.normalize(path);
+    }
+
+    private File[] getChildXMLFiles(WsResource directory) {
+        File directoryFile = directory.asFile();
+        if (directoryFile == null || !directoryFile.exists())
+            return null;
+
+        File[] defaultFiles = directoryFile.listFiles(new FileFilter() {
+
+            @Override
+            public boolean accept(File file) {
+                if (file != null && file.isFile()) {
+                    String name = file.getName().toLowerCase();
+                    return name.endsWith(".xml");
+                }
+                return false;
+            }
+        });
+        return defaultFiles;
+    }
+
+    /**
+     * To maintain the same order across platforms, we have to implement our own comparator.
+     * Otherwise, "aardvark.xml" would come before "Zebra.xml" on windows, and vice versa on unix.
+     */
+    private static class AlphaComparator implements Comparator<File> {
+
+        /*
+         * (non-Javadoc)
+         *
+         * @see java.util.Comparator#compare(java.lang.Object, java.lang.Object)
+         */
+        @Override
+        public int compare(File o1, File o2) {
+            return o1.getName().toLowerCase().compareTo(o2.getName().toLowerCase());
+        }
+
     }
 
     public void handleParseError(ConfigParserException e, Bundle bundle) {
